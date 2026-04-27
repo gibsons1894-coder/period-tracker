@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="생리 트래커">
+  <meta name="theme-color" content="#E91E8C">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>생리 트래커</title>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header id="header">
+    <button id="prevMonth" class="nav-btn" aria-label="이전 달">‹</button>
+    <div id="monthTitle" class="month-title"></div>
+    <button id="nextMonth" class="nav-btn" aria-label="다음 달">›</button>
+    <button id="settingsBtn" class="settings-btn" aria-label="설정">⚙️</button>
+  </header>
+
+  <!-- Cycle Info Bar -->
+  <div id="cycleInfoBar">
+    <div id="cycleStatus" class="cycle-status"></div>
+  </div>
+
+  <!-- Calendar -->
+  <div id="calendarContainer">
+    <div id="weekDays" class="week-days">
+      <span>일</span><span>월</span><span>화</span>
+      <span>수</span><span>목</span><span>금</span><span>토</span>
+    </div>
+    <div id="calendar" class="calendar-grid"></div>
+  </div>
+
+  <!-- Legend -->
+  <div id="legend">
+    <div class="legend-item"><span class="dot period"></span>생리</div>
+    <div class="legend-item"><span class="dot fertile"></span>가임기</div>
+    <div class="legend-item"><span class="dot ovulation"></span>배란일</div>
+    <div class="legend-item"><span class="dot intimate"></span>사랑한날</div>
+  </div>
+
+</div>
+
+<!-- Day Detail Modal -->
+<div id="dayModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalDate"></h2>
+      <button id="closeModal" class="close-btn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalStatus" class="modal-status"></div>
+      <div class="modal-actions">
+        <button id="togglePeriod" class="action-btn period-btn">🩸 생리 시작일로 설정</button>
+        <button id="toggleIntimate" class="action-btn intimate-btn">❤️ 사랑한 날 기록</button>
+      </div>
+      <div class="memo-section">
+        <label for="memoInput">메모</label>
+        <textarea id="memoInput" placeholder="이 날의 메모를 입력하세요..." rows="4"></textarea>
+        <button id="saveMemo" class="save-btn">메모 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>설정</h2>
+      <button id="closeSettings" class="close-btn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="settings-group">
+        <div class="setting-item">
+          <label for="cycleLength">생리 주기 (일)</label>
+          <input type="number" id="cycleLength" min="21" max="45" inputmode="numeric">
+        </div>
+        <div class="setting-item">
+          <label for="periodLength">생리 기간 (일)</label>
+          <input type="number" id="periodLength" min="2" max="10" inputmode="numeric">
+        </div>
+        <div class="setting-item">
+          <label for="notifyDaysBefore">알림 — 생리 예정일 며칠 전</label>
+          <input type="number" id="notifyDaysBefore" min="0" max="7" inputmode="numeric">
+        </div>
+        <button id="saveSettings" class="save-btn" style="margin-top:16px">설정 저장</button>
+      </div>
+
+      <div class="settings-group">
+        <button id="enableNotifications" class="enable-notif-btn">🔔 알림 허용하기</button>
+        <div id="notificationStatus" class="notification-status"></div>
+      </div>
+
+      <div class="settings-group">
+        <div class="section-title">생리 주기 기록</div>
+        <div id="cycleList" class="cycle-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
