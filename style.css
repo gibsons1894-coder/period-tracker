@@ -50,7 +50,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #A0274E;
+  background: #fff;
+  border-bottom: 1px solid #EBEBEB;
   padding: 0 8px;
   height: var(--header-height);
   padding-top: env(safe-area-inset-top);
@@ -58,9 +59,9 @@ html, body {
 }
 
 .month-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
-  color: #fff;
+  color: #1A1A1A;
   letter-spacing: -0.3px;
   background: none;
   border: none;
@@ -71,7 +72,7 @@ html, body {
   flex: 1;
   text-align: center;
 }
-.month-title:active { background: rgba(255,255,255,0.2); }
+.month-title:active { background: #F0F0F0; }
 
 /* ── Month Picker ── */
 .picker-backdrop {
@@ -158,9 +159,9 @@ html, body {
 }
 
 .nav-btn {
-  background: rgba(255,255,255,0.2);
+  background: transparent;
   border: none;
-  color: #fff;
+  color: #1A1A1A;
   font-size: 26px;
   width: 44px;
   height: 44px;
@@ -172,7 +173,7 @@ html, body {
   line-height: 1;
   transition: background 0.15s;
 }
-.nav-btn:active { background: rgba(255,255,255,0.35); }
+.nav-btn:active { background: #F0F0F0; }
 
 .header-actions {
   display: flex;
@@ -181,7 +182,7 @@ html, body {
 }
 
 .header-icon-btn {
-  background: rgba(255,255,255,0.2);
+  background: transparent;
   border: none;
   font-size: 20px;
   width: 44px;
@@ -193,7 +194,7 @@ html, body {
   justify-content: center;
   transition: background 0.15s;
 }
-.header-icon-btn:active { background: rgba(255,255,255,0.35); }
+.header-icon-btn:active { background: #F0F0F0; }
 
 /* ── Cycle Info Bar ── */
 #cycleInfoBar {
@@ -296,21 +297,21 @@ html, body {
 .calendar-cell:nth-child(7n) .day-number { color: #54A0FF; }
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
-/* Period */
-.calendar-cell.period {
+/* Period — 날짜 원에만 색상, 셀 배경은 흰색 유지 */
+.calendar-cell.period .day-number {
   background: var(--color-period);
+  color: #fff;
 }
-.calendar-cell.period .day-number { color: #fff; }
 
-/* Period predicted */
-.calendar-cell.period-predicted {
+/* Period predicted — 연한 핑크 원 */
+.calendar-cell.period-predicted .day-number {
   background: var(--color-period-predicted);
+  color: #c0334a;
 }
-.calendar-cell.period-predicted .day-number { color: #c0334a; }
 
-/* Override today ring on period cells */
+/* 오늘이 생리일이면 생리 색 우선 */
 .calendar-cell.period.today .day-number {
-  background: rgba(0,0,0,0.25);
+  background: var(--color-period);
   color: #fff;
 }
 
