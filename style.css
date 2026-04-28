@@ -437,6 +437,12 @@ html, body {
   font-weight: 500;
 }
 
+.legend-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+}
+
 .dot {
   width: 12px;
   height: 12px;
