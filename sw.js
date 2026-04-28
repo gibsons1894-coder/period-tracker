@@ -1,4 +1,4 @@
-const CACHE_NAME = 'period-tracker-v1';
+const CACHE_NAME = 'period-tracker-v15';
 const CACHE_URLS = [
   './index.html',
   './style.css',
@@ -31,7 +31,7 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || '생리 트래커';
+  const title = data.title || '달력';
   const options = {
     body: data.body || '생리 예정일이 다가왔어요!',
     icon: './icon-192.png',

@@ -1,6 +1,6 @@
 {
-  "name": "생리 트래커",
-  "short_name": "생리 트래커",
+  "name": "달력",
+  "short_name": "달력",
   "description": "생리 주기, 가임기, 배란일 추적",
   "start_url": "./index.html",
   "scope": "./",

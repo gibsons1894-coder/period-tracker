@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="생리 트래커">
+  <meta name="apple-mobile-web-app-title" content="달력">
   <meta name="theme-color" content="#E91E8C">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
-  <title>생리 트래커</title>
+  <title>달력</title>
 </head>
 <body>
 <div id="app">
@@ -18,10 +19,24 @@
   <!-- Header -->
   <header id="header">
     <button id="prevMonth" class="nav-btn" aria-label="이전 달">‹</button>
-    <div id="monthTitle" class="month-title"></div>
+    <button id="monthTitle" class="month-title" aria-label="연도·월 선택"></button>
     <button id="nextMonth" class="nav-btn" aria-label="다음 달">›</button>
-    <button id="settingsBtn" class="settings-btn" aria-label="설정">⚙️</button>
+    <div class="header-actions">
+      <button id="statsBtn" class="header-icon-btn" aria-label="통계">📊</button>
+      <button id="settingsBtn" class="header-icon-btn" aria-label="설정">⚙️</button>
+    </div>
   </header>
+
+  <!-- Month Picker -->
+  <div id="monthPicker" class="month-picker hidden" role="dialog" aria-label="날짜 선택">
+    <div class="picker-year-row">
+      <button id="pickerPrevYear" class="picker-year-btn">‹</button>
+      <span id="pickerYear" class="picker-year-label"></span>
+      <button id="pickerNextYear" class="picker-year-btn">›</button>
+    </div>
+    <div id="pickerMonths" class="picker-months"></div>
+  </div>
+  <div id="pickerBackdrop" class="picker-backdrop hidden"></div>
 
   <!-- Cycle Info Bar -->
   <div id="cycleInfoBar">
@@ -58,6 +73,7 @@
       <div id="modalStatus" class="modal-status"></div>
       <div class="modal-actions">
         <button id="togglePeriod" class="action-btn period-btn">🩸 생리 시작일로 설정</button>
+        <button id="togglePeriodEnd" class="action-btn period-end-btn hidden">🩸 생리 종료일로 설정</button>
         <button id="toggleIntimate" class="action-btn intimate-btn">❤️ 사랑한 날 기록</button>
       </div>
       <div class="memo-section">
@@ -65,6 +81,21 @@
         <textarea id="memoInput" placeholder="이 날의 메모를 입력하세요..." rows="4"></textarea>
         <button id="saveMemo" class="save-btn">메모 저장</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Modal -->
+<div id="statsModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>통계</h2>
+      <button id="closeStats" class="close-btn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="statsSummaryCards" class="stats-summary-cards"></div>
+      <div class="section-title" style="margin-top:8px">주기 기록</div>
+      <div id="statsCycleList" class="cycle-list"></div>
     </div>
   </div>
 </div>
@@ -100,9 +131,14 @@
       </div>
 
       <div class="settings-group">
-        <div class="section-title">생리 주기 기록</div>
-        <div id="cycleList" class="cycle-list"></div>
+        <div class="section-title">데이터 백업 / 복원</div>
+        <button id="exportData" class="backup-btn">📤 백업 파일 저장</button>
+        <label id="importLabel" class="backup-btn import-btn">
+          📥 백업 파일 불러오기
+          <input type="file" id="importFile" accept=".json" style="display:none">
+        </label>
       </div>
+
 
     </div>
   </div>
