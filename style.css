@@ -1,14 +1,14 @@
 :root {
-  --color-primary: #E91E8C;
-  --color-primary-dark: #C2185B;
-  --color-period: #FF4757;
-  --color-period-predicted: #FFB3BC;
-  --color-fertile: #54A0FF;
-  --color-fertile-predicted: #B3D4FF;
-  --color-ovulation: #FF6B35;
-  --color-ovulation-predicted: #FFD0BC;
-  --color-intimate-bg: #FFF0F5;
-  --color-today-ring: #E91E8C;
+  --color-primary: #A0274E;
+  --color-primary-dark: #7C1C3A;
+  --color-period: #C94060;
+  --color-period-predicted: #F2B8C6;
+  --color-fertile: #4A90D9;
+  --color-fertile-predicted: #B8D8F5;
+  --color-ovulation: #D4713A;
+  --color-ovulation-predicted: #F5D5BC;
+  --color-intimate-bg: #FDF0F4;
+  --color-today-ring: #A0274E;
   --color-text: #2D2D2D;
   --color-text-light: #888;
   --color-bg: #FAFAFA;
