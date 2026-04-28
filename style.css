@@ -308,36 +308,82 @@ html, body {
 }
 .calendar-cell.period-predicted .day-number { color: #c0334a; }
 
-/* Ovulation */
-.calendar-cell.ovulation {
-  background: var(--color-ovulation);
-}
-.calendar-cell.ovulation .day-number { color: #fff; }
-
-/* Ovulation predicted */
-.calendar-cell.ovulation-predicted {
-  background: var(--color-ovulation-predicted);
-}
-.calendar-cell.ovulation-predicted .day-number { color: #b84a1e; }
-
-/* Fertile */
-.calendar-cell.fertile {
-  background: var(--color-fertile);
-}
-.calendar-cell.fertile .day-number { color: #fff; }
-
-/* Fertile predicted */
-.calendar-cell.fertile-predicted {
-  background: var(--color-fertile-predicted);
-}
-.calendar-cell.fertile-predicted .day-number { color: #1a5db5; }
-
-/* Override today ring on colored cells */
-.calendar-cell.period.today .day-number,
-.calendar-cell.fertile.today .day-number,
-.calendar-cell.ovulation.today .day-number {
+/* Override today ring on period cells */
+.calendar-cell.period.today .day-number {
   background: rgba(0,0,0,0.25);
   color: #fff;
+}
+
+/* ── Fertile window: dotted connecting line (셀 하단 고정) ── */
+
+/* 공통 선 — 날짜 숫자(32px) + 상단 패딩(5px) = 37px 바로 아래 */
+.calendar-cell.fertile-line::before,
+.calendar-cell.fertile-line-predicted::before {
+  content: '';
+  position: absolute;
+  top: 37px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.calendar-cell.fertile-line::before {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-fertile) 0, var(--color-fertile) 4px,
+    transparent 4px, transparent 8px
+  );
+}
+
+.calendar-cell.fertile-line-predicted::before {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-fertile-predicted) 0, var(--color-fertile-predicted) 4px,
+    transparent 4px, transparent 8px
+  );
+}
+
+/* 시작: 오른쪽 절반만 */
+.calendar-cell.fertile-line-start::before {
+  left: 50%;
+}
+
+/* 끝: 왼쪽 절반만 */
+.calendar-cell.fertile-line-end::before {
+  right: 50%;
+}
+
+/* 1일짜리: 선 숨김 */
+.calendar-cell.fertile-line-start.fertile-line-end::before {
+  display: none;
+}
+
+/* 배란일 원형 점 */
+.calendar-cell.ovulation-dot::after,
+.calendar-cell.ovulation-dot-predicted::after {
+  content: '';
+  position: absolute;
+  top: 33px;        /* 37px - 4px = 원형 중심이 선(37px)에 맞춰짐 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.calendar-cell.ovulation-dot::after {
+  background: var(--color-ovulation);
+  border: 2px solid #fff;
+}
+
+.calendar-cell.ovulation-dot-predicted::after {
+  background: #fff;
+  border: 2px solid var(--color-ovulation-predicted);
 }
 
 /* Indicators (heart, memo) */
@@ -393,9 +439,20 @@ html, body {
   flex-shrink: 0;
 }
 .dot.period    { background: var(--color-period); }
-.dot.fertile   { background: var(--color-fertile); }
 .dot.ovulation { background: var(--color-ovulation); }
 .dot.intimate  { background: var(--color-primary); }
+.dot.fertile {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-fertile) 0,
+    var(--color-fertile) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  border-radius: 0;
+  width: 18px;
+  height: 2px;
+}
 
 /* ── Modals ── */
 .modal {

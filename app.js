@@ -232,6 +232,9 @@ function renderCalendar(year, month) {
   const { fertile, ovulation, predictedFertile, predictedOvulation } = getFertileAndOvulationDays();
   const intimate = new Set(data.intimateDates);
 
+  const fertileAll = new Set([...fertile, ...ovulation]);
+  const fertileAllPredicted = new Set([...predictedFertile, ...predictedOvulation]);
+
   const firstDow = new Date(year, month, 1).getDay();
   const totalDays = new Date(year, month + 1, 0).getDate();
 
@@ -255,14 +258,18 @@ function renderCalendar(year, month) {
       classes.push('period');
     } else if (predictedPeriod.has(dateStr)) {
       classes.push('period-predicted');
-    } else if (ovulation.has(dateStr)) {
-      classes.push('ovulation');
-    } else if (predictedOvulation.has(dateStr)) {
-      classes.push('ovulation-predicted');
-    } else if (fertile.has(dateStr)) {
-      classes.push('fertile');
-    } else if (predictedFertile.has(dateStr)) {
-      classes.push('fertile-predicted');
+    } else if (fertileAll.has(dateStr)) {
+      const dow = fromDateStr(dateStr).getDay();
+      classes.push('fertile-line');
+      if (!fertileAll.has(addDays(dateStr, -1)) || dow === 0) classes.push('fertile-line-start');
+      if (!fertileAll.has(addDays(dateStr, 1))  || dow === 6) classes.push('fertile-line-end');
+      if (ovulation.has(dateStr)) classes.push('ovulation-dot');
+    } else if (fertileAllPredicted.has(dateStr)) {
+      const dow = fromDateStr(dateStr).getDay();
+      classes.push('fertile-line-predicted');
+      if (!fertileAllPredicted.has(addDays(dateStr, -1)) || dow === 0) classes.push('fertile-line-start');
+      if (!fertileAllPredicted.has(addDays(dateStr, 1))  || dow === 6) classes.push('fertile-line-end');
+      if (predictedOvulation.has(dateStr)) classes.push('ovulation-dot-predicted');
     }
 
     cell.className = classes.join(' ');
