@@ -876,7 +876,6 @@ async function unregisterPushFromServer() {
 async function updatePushServer() {
   if (!PUSH_SERVER_URL || !_pushSubscription) return;
   const nextDate = getNextPeriodDate();
-  if (!nextDate) return;
   try {
     await fetch(`${PUSH_SERVER_URL}/update`, {
       method: 'POST',
