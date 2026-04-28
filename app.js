@@ -29,7 +29,7 @@ function defaultData() {
     cycles: [],           // [{startDate: 'YYYY-MM-DD', endDate?: 'YYYY-MM-DD'}]
     intimateDates: [],    // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
-    notifications: { enabled: false, daysBefore: 1 }
+    notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
   };
 }
 
@@ -517,6 +517,7 @@ function openSettings() {
   document.getElementById('cycleLength').value = data.cycleLength;
   document.getElementById('periodLength').value = data.periodLength;
   document.getElementById('notifyDaysBefore').value = data.notifications.daysBefore;
+  document.getElementById('notifyTime').value = data.notifications.notifyTime ?? '08:00';
   updateNotifStatus();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
@@ -530,9 +531,11 @@ function saveSettings() {
   const pl = parseInt(document.getElementById('periodLength').value);
   const nb = parseInt(document.getElementById('notifyDaysBefore').value);
 
+  const nt = document.getElementById('notifyTime').value;
   if (cl >= 21 && cl <= 45) data.cycleLength = cl;
   if (pl >= 2 && pl <= 10) data.periodLength = pl;
   if (nb >= 0 && nb <= 7) data.notifications.daysBefore = nb;
+  if (nt) data.notifications.notifyTime = nt;
 
   saveData();
   renderCalendar(currentYear, currentMonth);
@@ -748,7 +751,8 @@ async function subscribeToPush() {
       body: JSON.stringify({
         subscription: sub.toJSON(),
         nextPeriodDate: getNextPeriodDate(),
-        daysBefore: data.notifications.daysBefore
+        daysBefore: data.notifications.daysBefore,
+        notifyTime: data.notifications.notifyTime ?? '08:00'
       })
     });
   } catch (e) {
@@ -782,7 +786,8 @@ async function updatePushServer() {
       body: JSON.stringify({
         endpoint: _pushSubscription.endpoint,
         nextPeriodDate: nextDate,
-        daysBefore: data.notifications.daysBefore
+        daysBefore: data.notifications.daysBefore,
+        notifyTime: data.notifications.notifyTime ?? '08:00'
       })
     });
   } catch (e) {

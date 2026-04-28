@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 
 # 매일 오전 8시 KST (= 23:00 UTC)
 [triggers]
-crons = ["0 23 * * *"]
+crons = ["0 * * * *"]
 
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
