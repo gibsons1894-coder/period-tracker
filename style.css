@@ -431,7 +431,7 @@ html, body {
 .legend-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   flex: 1;
   justify-content: center;
 }
