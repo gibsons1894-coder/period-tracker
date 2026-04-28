@@ -123,7 +123,7 @@ function getFertileAndOvulationDays() {
   for (const c of data.cycles) {
     const ov = addDays(c.startDate, data.cycleLength - 14);
     ovulation.add(ov);
-    for (let i = -5; i <= 1; i++) {
+    for (let i = -5; i <= 2; i++) {
       if (i !== 0) fertile.add(addDays(ov, i));
     }
   }
@@ -131,7 +131,7 @@ function getFertileAndOvulationDays() {
   for (const start of getPredictedCycles()) {
     const ov = addDays(start, data.cycleLength - 14);
     predictedOvulation.add(ov);
-    for (let i = -5; i <= 1; i++) {
+    for (let i = -5; i <= 2; i++) {
       if (i !== 0) predictedFertile.add(addDays(ov, i));
     }
   }
