@@ -375,7 +375,7 @@ function renderCalendar(year, month) {
     if (intimate.has(dateStr)) {
       const h = document.createElement('span');
       h.className = 'indicator-heart';
-      h.textContent = '❤️';
+      h.textContent = '🍓';
       cell.appendChild(h);
     }
 
@@ -434,7 +434,7 @@ function openDayModal(dateStr) {
   // Intimate button state
   const isIntimate = data.intimateDates.includes(dateStr);
   const intimateBtn = document.getElementById('toggleIntimate');
-  intimateBtn.textContent = isIntimate ? '❤️ 사랑한 날 해제' : '❤️ 사랑한 날 기록';
+  intimateBtn.textContent = isIntimate ? '🍓 사랑한 날 해제' : '🍓 사랑한 날 기록';
   intimateBtn.classList.toggle('active', isIntimate);
 
   // Memo
@@ -507,7 +507,7 @@ function toggleIntimate() {
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
-    showToast('사랑한 날이 기록되었어요 ❤️');
+    showToast('사랑한 날이 기록되었어요 🍓');
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
