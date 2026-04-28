@@ -11,6 +11,95 @@ let data = {};
 let _pushSubscription = null;
 
 const STORAGE_KEY = 'periodTrackerData_v1';
+const SYNC_CODE_KEY = 'syncCode';
+const SYNC_TS_KEY   = 'syncLastModified';
+
+// ── Sync ───────────────────────────────────────────────
+let syncCode = localStorage.getItem(SYNC_CODE_KEY) || null;
+let _syncTimer = null;
+let _isSyncing = false;
+
+function generateSyncCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function setSyncCode(code) {
+  syncCode = code.toUpperCase().trim();
+  localStorage.setItem(SYNC_CODE_KEY, syncCode);
+}
+
+function clearSyncCode() {
+  syncCode = null;
+  localStorage.removeItem(SYNC_CODE_KEY);
+  localStorage.removeItem(SYNC_TS_KEY);
+}
+
+function getLocalTs() {
+  return parseInt(localStorage.getItem(SYNC_TS_KEY) || '0');
+}
+
+function scheduleSyncSave() {
+  if (!PUSH_SERVER_URL || !syncCode || _isSyncing) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncSave, 2000);
+}
+
+async function syncSave() {
+  if (!PUSH_SERVER_URL || !syncCode) return;
+  const ts = Date.now();
+  localStorage.setItem(SYNC_TS_KEY, ts);
+  try {
+    const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: syncCode, data, lastModified: ts })
+    });
+    const json = await r.json();
+    if (json.conflict) {
+      _applyServerData(json.data, json.lastModified);
+    }
+  } catch (e) {
+    console.warn('syncSave failed:', e);
+  }
+}
+
+async function syncLoad() {
+  if (!PUSH_SERVER_URL || !syncCode) return;
+  try {
+    const r = await fetch(`${PUSH_SERVER_URL}/data/load?code=${syncCode}`);
+    const json = await r.json();
+    if (!json.data) return;
+    if (json.lastModified > getLocalTs()) {
+      _applyServerData(json.data, json.lastModified);
+      showToast('✓ 동기화됨');
+    }
+  } catch (e) {
+    console.warn('syncLoad failed:', e);
+  }
+}
+
+function _applyServerData(serverData, ts) {
+  _isSyncing = true;
+  data = serverData;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(SYNC_TS_KEY, ts);
+  _isSyncing = false;
+  renderCalendar(currentYear, currentMonth);
+  updateCycleInfoBar();
+}
+
+function updateSyncStatus() {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  if (syncCode) {
+    el.textContent = `연결됨 · ${syncCode}`;
+    el.style.color = '#27AE60';
+  } else {
+    el.textContent = '동기화 꺼짐';
+    el.style.color = '';
+  }
+}
 
 // ── Data ───────────────────────────────────────────────
 function loadData() {
@@ -35,6 +124,7 @@ function defaultData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  scheduleSyncSave();
 }
 
 // ── Date utilities ─────────────────────────────────────
@@ -526,6 +616,7 @@ function openSettings() {
   document.getElementById('notifyDaysBefore').value = data.notifications.daysBefore;
   document.getElementById('notifyTime').value = data.notifications.notifyTime ?? '08:00';
   updateNotifStatus();
+  updateSyncStatus();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
 
@@ -977,12 +1068,39 @@ function init() {
   });
   document.getElementById('closeStats').addEventListener('click', closeStats);
 
+  // Sync events
+  document.getElementById('syncCreateBtn').addEventListener('click', () => {
+    if (syncCode && !confirm('새 코드를 만들면 기존 연결이 끊어집니다. 계속할까요?')) return;
+    setSyncCode(generateSyncCode());
+    updateSyncStatus();
+    syncSave();
+    showToast(`코드 생성됨: ${syncCode}`);
+  });
+  document.getElementById('syncConnectBtn').addEventListener('click', () => {
+    const input = document.getElementById('syncCodeInput').value.toUpperCase().trim();
+    if (input.length !== 10) { showToast('코드는 10자리여야 해요'); return; }
+    setSyncCode(input);
+    document.getElementById('syncCodeInput').value = '';
+    updateSyncStatus();
+    syncLoad().then(() => showToast('연결되었어요 ✓'));
+  });
+  document.getElementById('syncDisconnectBtn').addEventListener('click', () => {
+    if (!confirm('동기화 연결을 해제할까요?')) return;
+    clearSyncCode();
+    updateSyncStatus();
+    showToast('동기화 해제됨');
+  });
+
   initSwipe();
   registerSW();
 
   // Check notifications after a short delay
   setTimeout(checkAndNotify, 1500);
   setTimeout(initPushSubscription, 2000);
+
+  // 동기화: 시작 시 로드, 이후 30초마다 체크
+  setTimeout(syncLoad, 3000);
+  setInterval(syncLoad, 30000);
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -137,6 +137,19 @@
       </div>
 
       <div class="settings-group">
+        <div class="section-title">기기 동기화</div>
+        <div id="syncStatus" class="sync-status-text">동기화 꺼짐</div>
+        <div class="sync-row">
+          <input type="text" id="syncCodeInput" class="sync-input" placeholder="코드 10자리 입력" maxlength="10" autocomplete="off" spellcheck="false">
+          <button id="syncConnectBtn" class="sync-connect-btn">연결</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="syncCreateBtn" class="backup-btn" style="margin-bottom:0;flex:1">🔗 새 코드 만들기</button>
+          <button id="syncDisconnectBtn" class="backup-btn" style="margin-bottom:0;flex:1;color:#e74c3c;border-color:#e74c3c">연결 해제</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
         <div class="section-title">데이터 백업 / 복원</div>
         <button id="exportData" class="backup-btn">📤 백업 파일 저장</button>
         <label id="importLabel" class="backup-btn import-btn">

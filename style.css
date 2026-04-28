@@ -621,6 +621,48 @@ html, body {
 }
 #memoInput:focus { border-color: var(--color-primary); background: #fff; }
 
+/* Sync UI */
+.sync-status-text {
+  font-size: 13px;
+  color: var(--color-text-light);
+  padding: 6px 0 10px;
+  font-weight: 500;
+}
+
+.sync-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sync-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  outline: none;
+  color: var(--color-text);
+}
+.sync-input:focus { border-color: var(--color-primary); }
+
+.sync-connect-btn {
+  padding: 10px 16px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.sync-connect-btn:active { opacity: 0.75; }
+
 .save-btn {
   width: 100%;
   padding: 14px;

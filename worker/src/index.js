@@ -71,6 +71,31 @@ export default {
       return res({ ok: true });
     }
 
+    // POST /data/save  { code, data, lastModified }
+    if (request.method === 'POST' && pathname === '/data/save') {
+      const { code, data, lastModified } = await request.json();
+      if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
+      const key = `sync-${code}`;
+      const existing = await env.SUBSCRIPTIONS.get(key);
+      if (existing) {
+        const prev = JSON.parse(existing);
+        if (prev.lastModified > lastModified) {
+          return res({ conflict: true, data: prev.data, lastModified: prev.lastModified });
+        }
+      }
+      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data, lastModified }));
+      return res({ ok: true });
+    }
+
+    // GET /data/load?code=XXXXXXXXXX
+    if (request.method === 'GET' && pathname === '/data/load') {
+      const code = new URL(request.url).searchParams.get('code');
+      if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
+      const raw = await env.SUBSCRIPTIONS.get(`sync-${code}`);
+      if (!raw) return res({ data: null });
+      return res(JSON.parse(raw));
+    }
+
     return res({ error: 'not found' }, 404);
   },
 
