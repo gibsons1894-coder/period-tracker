@@ -285,8 +285,9 @@ html, body {
 
 /* Today ring */
 .calendar-cell.today .day-number {
-  background: var(--color-primary);
-  color: #fff;
+  background: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
 }
 
 /* Sunday column (1st) */
