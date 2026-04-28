@@ -286,7 +286,7 @@ function renderCalendar(year, month) {
       const h = document.createElement('span');
       h.className = 'indicator-heart';
       h.textContent = '❤️';
-      ind.appendChild(h);
+      cell.appendChild(h);
     }
 
     if (data.memos[dateStr]) {
