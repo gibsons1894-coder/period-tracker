@@ -1,31 +1,45 @@
-const CACHE_NAME = 'period-tracker-v16';
-const CACHE_URLS = [
-  './index.html',
-  './style.css',
-  './app.js',
-  './manifest.json',
-  './icon_192.png',
-  './icon_512.png'
-];
+const CACHE_NAME = 'period-tracker-v17';
+const IMAGE_CACHE = 'period-tracker-images-v1';
+const IMAGE_URLS = ['./icon_192.png', './icon_512.png', './neulsang_logo.png'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(CACHE_URLS).catch(() => {}))
+    caches.open(IMAGE_CACHE).then(cache => cache.addAll(IMAGE_URLS).catch(() => {}))
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME && k !== IMAGE_CACHE).map(k => caches.delete(k))
+      )
     ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
+  const { request } = event;
+  const dest = request.destination;
+
+  // 이미지: 캐시 우선 (변경 빈도 낮음)
+  if (dest === 'image') {
+    event.respondWith(
+      caches.match(request).then(cached => cached || fetch(request))
+    );
+    return;
+  }
+
+  // HTML / CSS / JS: 네트워크 우선 → 실패 시 캐시 (항상 최신 코드 제공)
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });
 
