@@ -1,9 +1,14 @@
 'use strict';
 
+// ── Push server config (Worker 배포 후 채워주세요) ──────
+const PUSH_SERVER_URL  = 'https://period-tracker-push.life-app.workers.dev';
+const VAPID_PUBLIC_KEY = 'URfnrL_y-iMmUH5-Ebz6VAIbAE8mep3lr8H2wClZZqw';
+
 // ── State ──────────────────────────────────────────────
 let currentYear, currentMonth;
 let selectedDate = null;
 let data = {};
+let _pushSubscription = null;
 
 const STORAGE_KEY = 'periodTrackerData_v1';
 
@@ -19,12 +24,12 @@ function loadData() {
 
 function defaultData() {
   return {
-    cycleLength: 28,
+    cycleLength: 30,
     periodLength: 5,
-    cycles: [],           // [{startDate: 'YYYY-MM-DD'}]
+    cycles: [],           // [{startDate: 'YYYY-MM-DD', endDate?: 'YYYY-MM-DD'}]
     intimateDates: [],    // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
-    notifications: { enabled: false, daysBefore: 2 }
+    notifications: { enabled: false, daysBefore: 1 }
   };
 }
 
@@ -62,12 +67,29 @@ function formatDate(dateStr) {
 }
 
 // ── Cycle calculations ─────────────────────────────────
+function getEffectiveCycleLength() {
+  if (data.cycles.length < 2) return data.cycleLength;
+  const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  let total = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    total += diffDays(sorted[i - 1].startDate, sorted[i].startDate);
+  }
+  return Math.round(total / (sorted.length - 1));
+}
+
 function getActualPeriodDays() {
   const set = new Set();
   for (const c of data.cycles) {
-    for (let i = 0; i < data.periodLength; i++) set.add(addDays(c.startDate, i));
+    const len = c.endDate ? diffDays(c.startDate, c.endDate) + 1 : data.periodLength;
+    for (let i = 0; i < len; i++) set.add(addDays(c.startDate, i));
   }
   return set;
+}
+
+function getCycleForEndDate(dateStr) {
+  return [...data.cycles]
+    .filter(c => c.startDate <= dateStr && diffDays(c.startDate, dateStr) < data.cycleLength)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))[0] || null;
 }
 
 function getPredictedCycles() {
@@ -98,7 +120,6 @@ function getFertileAndOvulationDays() {
   const ovulation = new Set();
   const predictedFertile = new Set();
   const predictedOvulation = new Set();
-
   for (const c of data.cycles) {
     const ov = addDays(c.startDate, data.cycleLength - 14);
     ovulation.add(ov);
@@ -123,9 +144,9 @@ function getNextPeriodInfo() {
   const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
   const last = sorted[sorted.length - 1];
   const today = toDateStr(new Date());
-
   // Check if currently in period
-  for (let i = 0; i < data.periodLength; i++) {
+  const lastLen = last.endDate ? diffDays(last.startDate, last.endDate) + 1 : data.periodLength;
+  for (let i = 0; i < lastLen; i++) {
     if (addDays(last.startDate, i) === today) return { type: 'inPeriod', day: i + 1 };
   }
 
@@ -150,8 +171,12 @@ function getOvulationInfo() {
   const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
   const last = sorted[sorted.length - 1];
   const today = toDateStr(new Date());
+  const ov0 = addDays(last.startDate, data.cycleLength - 14);
+  const d0 = diffDays(today, ov0);
+  if (d0 >= -1) return { days: d0, date: ov0 };
 
-  for (let i = 0; i <= 3; i++) {
+  // Predicted future cycles
+  for (let i = 1; i <= 3; i++) {
     const cycleStart = addDays(last.startDate, data.cycleLength * i);
     const ov = addDays(cycleStart, data.cycleLength - 14);
     const d = diffDays(today, ov);
@@ -291,11 +316,23 @@ function openDayModal(dateStr) {
 
   document.getElementById('modalStatus').textContent = statusParts.join('  ') || '';
 
-  // Period button state
+  // Period start button state
   const isCycleStart = data.cycles.some(c => c.startDate === dateStr);
   const periodBtn = document.getElementById('togglePeriod');
   periodBtn.textContent = isCycleStart ? '🩸 생리 시작일 해제' : '🩸 생리 시작일로 설정';
   periodBtn.classList.toggle('active', isCycleStart);
+
+  // Period end button state
+  const relatedCycle = getCycleForEndDate(dateStr);
+  const endBtn = document.getElementById('togglePeriodEnd');
+  if (relatedCycle) {
+    endBtn.classList.remove('hidden');
+    const isEndDate = relatedCycle.endDate === dateStr;
+    endBtn.textContent = isEndDate ? '🩸 생리 종료일 해제' : '🩸 생리 종료일로 설정';
+    endBtn.classList.toggle('active', isEndDate);
+  } else {
+    endBtn.classList.add('hidden');
+  }
 
   // Intimate button state
   const isIntimate = data.intimateDates.includes(dateStr);
@@ -322,15 +359,47 @@ function togglePeriodStart() {
     data.cycles.splice(idx, 1);
     showToast('생리 시작일이 해제되었어요');
   } else {
-    data.cycles.push({ startDate: selectedDate });
+    // 가까운 날짜(생리 기간 + 2일 이내)에 기존 시작일이 있으면 교체 (날짜 수정)
+    const threshold = data.periodLength + 2;
+    const nearbyIdx = data.cycles.findIndex(
+      c => Math.abs(diffDays(c.startDate, selectedDate)) <= threshold
+    );
+    if (nearbyIdx >= 0) {
+      const old = data.cycles[nearbyIdx];
+      const updated = { startDate: selectedDate };
+      if (old.endDate && old.endDate >= selectedDate) updated.endDate = old.endDate;
+      data.cycles.splice(nearbyIdx, 1, updated);
+      showToast('생리 시작일이 수정되었어요 🩸');
+    } else {
+      data.cycles.push({ startDate: selectedDate });
+      showToast('생리 시작일이 기록되었어요 🩸');
+    }
     data.cycles.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    showToast('생리 시작일이 기록되었어요 🩸');
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
   checkAndNotify();
+  updatePushServer();
   openDayModal(selectedDate); // refresh modal state
+}
+
+function togglePeriodEnd() {
+  if (!selectedDate) return;
+  const cycle = getCycleForEndDate(selectedDate);
+  if (!cycle) return;
+
+  if (cycle.endDate === selectedDate) {
+    delete cycle.endDate;
+    showToast('생리 종료일이 해제되었어요');
+  } else {
+    cycle.endDate = selectedDate;
+    showToast('생리 종료일이 기록되었어요 🩸');
+  }
+  saveData();
+  renderCalendar(currentYear, currentMonth);
+  updateCycleInfoBar();
+  openDayModal(selectedDate);
 }
 
 function toggleIntimate() {
@@ -362,13 +431,93 @@ function saveMemo() {
   renderCalendar(currentYear, currentMonth);
 }
 
+// ── Stats modal ────────────────────────────────────────
+function openStats() {
+  renderStatsModal();
+  document.getElementById('statsModal').classList.remove('hidden');
+}
+
+function closeStats() {
+  document.getElementById('statsModal').classList.add('hidden');
+}
+
+function renderStatsModal() {
+  renderSummaryCards();
+  renderCycleList();
+}
+
+function renderSummaryCards() {
+  const container = document.getElementById('statsSummaryCards');
+  if (!data.cycles.length) {
+    container.innerHTML = '';
+    return;
+  }
+  const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  // 주기 길이들
+  const cycleLengths = [];
+  for (let i = 1; i < sorted.length; i++) {
+    cycleLengths.push(diffDays(sorted[i - 1].startDate, sorted[i].startDate));
+  }
+
+  // 생리 기간들 (종료일 있는 것만)
+  const periodLengths = sorted
+    .filter(c => c.endDate)
+    .map(c => diffDays(c.startDate, c.endDate) + 1);
+
+  const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  const minVal = arr => arr.length ? Math.min(...arr) : null;
+  const maxVal = arr => arr.length ? Math.max(...arr) : null;
+
+  const avgCycle = avg(cycleLengths);
+  const avgPeriod = avg(periodLengths);
+
+  const cards = [
+    {
+      label: '평균 주기',
+      value: avgCycle ?? data.cycleLength,
+      unit: '일',
+      sub: cycleLengths.length >= 2
+        ? `${minVal(cycleLengths)}~${maxVal(cycleLengths)}일`
+        : cycleLengths.length === 1 ? `${cycleLengths[0]}일 (1회)` : '설정값 기준'
+    },
+    {
+      label: '평균 생리 기간',
+      value: avgPeriod ?? data.periodLength,
+      unit: '일',
+      sub: periodLengths.length >= 2
+        ? `${minVal(periodLengths)}~${maxVal(periodLengths)}일`
+        : periodLengths.length === 1 ? `${periodLengths[0]}일 (1회)` : '설정값 기준'
+    },
+    {
+      label: '총 기록',
+      value: sorted.length,
+      unit: '회',
+      sub: `${formatDate(sorted[0].startDate).slice(0, 8)} ~`
+    },
+    {
+      label: '설정 주기',
+      value: data.cycleLength,
+      unit: '일',
+      sub: `생리 기간 ${data.periodLength}일`
+    }
+  ];
+
+  container.innerHTML = cards.map(c => `
+    <div class="stats-card">
+      <div class="stats-card-label">${c.label}</div>
+      <div class="stats-card-value">${c.value}<span class="stats-card-unit"> ${c.unit}</span></div>
+      <div class="stats-card-label">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
 // ── Settings modal ─────────────────────────────────────
 function openSettings() {
   document.getElementById('cycleLength').value = data.cycleLength;
   document.getElementById('periodLength').value = data.periodLength;
   document.getElementById('notifyDaysBefore').value = data.notifications.daysBefore;
   updateNotifStatus();
-  renderCycleList();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
 
@@ -388,12 +537,13 @@ function saveSettings() {
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
+  updatePushServer();
   closeSettings();
   showToast('설정이 저장되었어요');
 }
 
 function renderCycleList() {
-  const container = document.getElementById('cycleList');
+  const container = document.getElementById('statsCycleList');
   const sorted = [...data.cycles].sort((a, b) => b.startDate.localeCompare(a.startDate));
 
   if (!sorted.length) {
@@ -401,18 +551,47 @@ function renderCycleList() {
     return;
   }
 
-  container.innerHTML = sorted.map((c, i) => {
+  // 주기 간격 계산 (오름차순으로 계산)
+  const asc = [...sorted].reverse();
+  const cycleLengths = [];
+  for (let i = 1; i < asc.length; i++) {
+    cycleLengths.push(diffDays(asc[i - 1].startDate, asc[i].startDate));
+  }
+  const avgCycle = cycleLengths.length
+    ? Math.round(cycleLengths.reduce((a, b) => a + b, 0) / cycleLengths.length)
+    : null;
+
+  const summary = avgCycle !== null
+    ? `<div class="cycle-summary">📊 평균 주기 <strong>${avgCycle}일</strong> · 총 ${sorted.length}회 기록</div>`
+    : '';
+
+  const items = sorted.map((c, i) => {
     const actualIdx = data.cycles.findIndex(x => x.startDate === c.startDate);
-    const endDate = addDays(c.startDate, data.periodLength - 1);
+    const endDate = c.endDate || addDays(c.startDate, data.periodLength - 1);
+    const periodLen = c.endDate ? diffDays(c.startDate, c.endDate) + 1 : data.periodLength;
+    const endLabel = c.endDate ? formatDate(endDate) : `${formatDate(endDate)} (예정)`;
+    // sorted는 내림차순이므로 i-1이 다음 주기(더 최근)
+    // 이전 시작일 → 이 시작일 간격 (sorted는 내림차순이므로 i+1이 이전 주기)
+    const cycleLen = i < sorted.length - 1
+      ? diffDays(sorted[i + 1].startDate, sorted[i].startDate)
+      : null;
+    const cycleLenLabel = cycleLen !== null
+      ? `<span class="cycle-length-badge">${cycleLen}일 주기</span>`
+      : '';
     return `
       <div class="cycle-item">
-        <div>
-          <div class="cycle-item-date">${formatDate(c.startDate)}</div>
-          <div class="cycle-item-info">~ ${formatDate(endDate)} · ${data.periodLength}일간</div>
+        <div class="cycle-item-body">
+          <div class="cycle-item-top">
+            <span class="cycle-item-date">${formatDate(c.startDate)}</span>
+            ${cycleLenLabel}
+          </div>
+          <div class="cycle-item-info">~ ${endLabel} · 생리 ${periodLen}일</div>
         </div>
         <button class="cycle-delete-btn" onclick="deleteCycle(${actualIdx})">✕</button>
       </div>`;
   }).join('');
+
+  container.innerHTML = summary + items;
 }
 
 function deleteCycle(idx) {
@@ -421,18 +600,32 @@ function deleteCycle(idx) {
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
-  renderCycleList();
+  renderStatsModal();
   showToast('삭제되었어요');
 }
 
 // ── Notifications ──────────────────────────────────────
 async function requestNotificationPermission() {
   if (!('Notification' in window)) {
-    updateNotifStatus('이 브라우저는 알림을 지원하지 않아요');
+    updateNotifStatus();
     return;
   }
 
-  // iOS requires the app to be added to home screen first
+  // 권한이 이미 허용된 경우 → 활성화/비활성화 토글
+  if (Notification.permission === 'granted') {
+    data.notifications.enabled = !data.notifications.enabled;
+    saveData();
+    updateNotifStatus();
+    if (data.notifications.enabled) {
+      showToast('알림이 켜졌어요 🔔');
+      subscribeToPush();
+    } else {
+      showToast('알림이 꺼졌어요 🔕');
+      unregisterPushFromServer();
+    }
+    return;
+  }
+
   const result = await Notification.requestPermission();
   data.notifications.enabled = result === 'granted';
   saveData();
@@ -441,12 +634,10 @@ async function requestNotificationPermission() {
   if (result === 'granted') {
     showToast('알림이 허용되었어요 🔔');
     checkAndNotify();
+    subscribeToPush();
   } else {
     showToast('알림 권한이 거부되었어요');
   }
-
-  const btn = document.getElementById('enableNotifications');
-  btn.classList.toggle('granted', result === 'granted');
 }
 
 function updateNotifStatus() {
@@ -458,20 +649,30 @@ function updateNotifStatus() {
   }
   const perm = Notification.permission;
   if (perm === 'granted') {
-    statusEl.textContent = '✅ 알림 허용됨 (홈 화면 추가 후 작동)';
-    btn.textContent = '✅ 알림 허용됨';
-    btn.classList.add('granted');
+    if (data.notifications.enabled) {
+      statusEl.textContent = PUSH_SERVER_URL ? '✅ 알림 켜짐 (백그라운드 알림 활성)' : '✅ 알림 켜짐 (홈 화면 추가 후 작동)';
+      btn.textContent = '🔔 알림 켜짐 (탭하면 끄기)';
+      btn.classList.add('granted');
+      btn.classList.remove('muted');
+    } else {
+      statusEl.textContent = '🔕 알림 꺼짐 — 버튼을 눌러 다시 켜세요';
+      btn.textContent = '🔕 알림 꺼짐 (탭하면 켜기)';
+      btn.classList.remove('granted');
+      btn.classList.add('muted');
+    }
   } else if (perm === 'denied') {
     statusEl.textContent = '❌ 알림 거부됨 — 설정에서 변경해주세요';
+    btn.classList.remove('granted', 'muted');
   } else {
     statusEl.textContent = '⚠️ 홈 화면에 추가한 뒤 알림을 허용하세요';
-    btn.classList.remove('granted');
+    btn.classList.remove('granted', 'muted');
   }
 }
 
 function checkAndNotify() {
   if (!data.cycles.length) return;
   if (Notification.permission !== 'granted') return;
+  if (!data.notifications.enabled) return;
 
   const lastShown = localStorage.getItem('lastNotifDate');
   const today = toDateStr(new Date());
@@ -505,6 +706,127 @@ function checkAndNotify() {
   }
 }
 
+// ── Push helpers ──────────────────────────────────────
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+function getNextPeriodDate() {
+  const info = getNextPeriodInfo();
+  if (!info) return null;
+  if (info.type === 'upcoming') return info.date;
+  // inPeriod or overdue: next predicted cycle
+  const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  return addDays(sorted[sorted.length - 1].startDate, data.cycleLength);
+}
+
+async function initPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    _pushSubscription = await reg.pushManager.getSubscription();
+  } catch (e) {
+    console.warn('getSubscription failed:', e);
+  }
+}
+
+async function subscribeToPush() {
+  if (!PUSH_SERVER_URL || !VAPID_PUBLIC_KEY) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    _pushSubscription = sub;
+    await fetch(`${PUSH_SERVER_URL}/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        nextPeriodDate: getNextPeriodDate(),
+        daysBefore: data.notifications.daysBefore
+      })
+    });
+  } catch (e) {
+    console.warn('subscribeToPush failed:', e);
+  }
+}
+
+async function unregisterPushFromServer() {
+  if (!PUSH_SERVER_URL || !_pushSubscription) return;
+  try {
+    await fetch(`${PUSH_SERVER_URL}/unsubscribe`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: _pushSubscription.endpoint })
+    });
+    await _pushSubscription.unsubscribe();
+    _pushSubscription = null;
+  } catch (e) {
+    console.warn('unregisterPushFromServer failed:', e);
+  }
+}
+
+async function updatePushServer() {
+  if (!PUSH_SERVER_URL || !_pushSubscription) return;
+  const nextDate = getNextPeriodDate();
+  if (!nextDate) return;
+  try {
+    await fetch(`${PUSH_SERVER_URL}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: _pushSubscription.endpoint,
+        nextPeriodDate: nextDate,
+        daysBefore: data.notifications.daysBefore
+      })
+    });
+  } catch (e) {
+    console.warn('updatePushServer failed:', e);
+  }
+}
+
+// ── Backup / Restore ───────────────────────────────────
+function exportData() {
+  try {
+    const json = JSON.stringify(data, null, 2);
+    const date = toDateStr(new Date()).replace(/-/g, '');
+    const a = document.createElement('a');
+    a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+    a.download = `달력_백업_${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('백업 파일이 저장되었어요 📤');
+  } catch (err) {
+    alert('백업 오류: ' + err.message);
+  }
+}
+
+function importData(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.cycles || !parsed.intimateDates) throw new Error('invalid');
+      if (!confirm('현재 데이터가 백업 파일로 교체됩니다. 계속할까요?')) return;
+      data = parsed;
+      saveData();
+      renderCalendar(currentYear, currentMonth);
+      updateCycleInfoBar();
+      showToast('복원되었어요 📥');
+    } catch {
+      showToast('올바른 백업 파일이 아니에요');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── Toast ──────────────────────────────────────────────
 let toastTimer = null;
 function showToast(msg) {
@@ -526,6 +848,40 @@ function nextMonth() {
   if (currentMonth === 11) { currentYear++; currentMonth = 0; }
   else currentMonth++;
   renderCalendar(currentYear, currentMonth);
+}
+
+// ── Month Picker ───────────────────────────────────────
+let pickerYear = new Date().getFullYear();
+
+function openMonthPicker() {
+  pickerYear = currentYear;
+  renderMonthPicker();
+  document.getElementById('monthPicker').classList.remove('hidden');
+  document.getElementById('pickerBackdrop').classList.remove('hidden');
+}
+
+function closeMonthPicker() {
+  document.getElementById('monthPicker').classList.add('hidden');
+  document.getElementById('pickerBackdrop').classList.add('hidden');
+}
+
+function renderMonthPicker() {
+  document.getElementById('pickerYear').textContent = `${pickerYear}년`;
+  const today = new Date();
+  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('pickerMonths').innerHTML = MONTHS.map((m, i) => {
+    const isCurrent = pickerYear === currentYear && i === currentMonth;
+    const isToday = pickerYear === today.getFullYear() && i === today.getMonth();
+    const cls = ['picker-month-btn', isCurrent ? 'current' : '', isToday && !isCurrent ? 'today-month' : ''].join(' ').trim();
+    return `<button class="${cls}" onclick="selectPickerMonth(${i})">${m}</button>`;
+  }).join('');
+}
+
+function selectPickerMonth(month) {
+  currentYear = pickerYear;
+  currentMonth = month;
+  renderCalendar(currentYear, currentMonth);
+  closeMonthPicker();
 }
 
 // Touch swipe for month navigation
@@ -568,16 +924,27 @@ function init() {
   // Bind events
   document.getElementById('prevMonth').addEventListener('click', prevMonth);
   document.getElementById('nextMonth').addEventListener('click', nextMonth);
+  document.getElementById('monthTitle').addEventListener('click', openMonthPicker);
+  document.getElementById('pickerBackdrop').addEventListener('click', closeMonthPicker);
+  document.getElementById('pickerPrevYear').addEventListener('click', () => { pickerYear--; renderMonthPicker(); });
+  document.getElementById('pickerNextYear').addEventListener('click', () => { pickerYear++; renderMonthPicker(); });
+  document.getElementById('statsBtn').addEventListener('click', openStats);
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
   document.getElementById('closeModal').addEventListener('click', closeDayModal);
   document.getElementById('togglePeriod').addEventListener('click', togglePeriodStart);
+  document.getElementById('togglePeriodEnd').addEventListener('click', togglePeriodEnd);
   document.getElementById('toggleIntimate').addEventListener('click', toggleIntimate);
   document.getElementById('saveMemo').addEventListener('click', saveMemo);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   document.getElementById('enableNotifications').addEventListener('click', requestNotificationPermission);
+  document.getElementById('exportData').addEventListener('click', exportData);
+  document.getElementById('importFile').addEventListener('change', e => {
+    importData(e.target.files[0]);
+    e.target.value = '';
+  });
 
   // Close modal on backdrop click
   document.getElementById('dayModal').addEventListener('click', function(e) {
@@ -586,12 +953,17 @@ function init() {
   document.getElementById('settingsModal').addEventListener('click', function(e) {
     if (e.target === this) closeSettings();
   });
+  document.getElementById('statsModal').addEventListener('click', function(e) {
+    if (e.target === this) closeStats();
+  });
+  document.getElementById('closeStats').addEventListener('click', closeStats);
 
   initSwipe();
   registerSW();
 
   // Check notifications after a short delay
   setTimeout(checkAndNotify, 1500);
+  setTimeout(initPushSubscription, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
