@@ -920,6 +920,13 @@ async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   try {
     await navigator.serviceWorker.register('./sw.js');
+
+    // 새 SW가 활성화되면 자동 새로고침 (첫 설치 제외)
+    let isFirstInstall = !navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!isFirstInstall) window.location.reload();
+      isFirstInstall = false;
+    });
   } catch (err) {
     console.warn('SW registration failed:', err);
   }

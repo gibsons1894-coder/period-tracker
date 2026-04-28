@@ -1,11 +1,11 @@
-const CACHE_NAME = 'period-tracker-v15';
+const CACHE_NAME = 'period-tracker-v16';
 const CACHE_URLS = [
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './icon_192.png',
+  './icon_512.png'
 ];
 
 self.addEventListener('install', event => {
