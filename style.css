@@ -438,10 +438,8 @@ html, body {
 }
 
 .legend-logo {
-  height: 1em;
+  height: 11px;
   width: auto;
-  max-height: 14px;
-  max-width: 60px;
   object-fit: contain;
   display: block;
 }
