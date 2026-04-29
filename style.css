@@ -298,29 +298,41 @@ html, body {
 .calendar-cell:nth-child(7n) .day-number { color: #54A0FF; }
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
-/* Period — 날짜 원에만 색상, 셀 배경은 흰색 유지 */
-.calendar-cell.period .day-number {
+/* Period — 셀 배경 전체를 빨간색으로 */
+.calendar-cell.period {
   background: var(--color-period);
+}
+.calendar-cell.period .day-number {
+  background: transparent;
+  color: #fff;
+}
+.calendar-cell.period:nth-child(7n+1) .day-number,
+.calendar-cell.period:nth-child(7n) .day-number {
   color: #fff;
 }
 
-/* Period predicted — 연한 핑크 원 */
-.calendar-cell.period-predicted .day-number {
+/* Period predicted — 셀 배경을 연한 핑크로 */
+.calendar-cell.period-predicted {
   background: var(--color-period-predicted);
+}
+.calendar-cell.period-predicted .day-number {
+  background: transparent;
   color: #c0334a;
 }
 
-/* 오늘이 생리일이면 생리 색 우선 */
+/* 오늘이 생리일이면 셀 배경은 생리 색, 링은 흰색 */
 .calendar-cell.period.today .day-number {
-  background: var(--color-period);
+  background: transparent;
   color: #fff;
+  border-color: rgba(255, 255, 255, 0.8);
 }
 
 /* ── Fertile window: dotted connecting line (셀 하단 고정) ── */
 
 /* 공통 선 — 날짜 숫자(32px) + 상단 패딩(5px) = 37px 바로 아래 */
 .calendar-cell.fertile-line::before,
-.calendar-cell.fertile-line-predicted::before {
+.calendar-cell.fertile-line-predicted::before,
+.calendar-cell.fertile-line-high::before {
   content: '';
   position: absolute;
   top: 37px;
@@ -348,6 +360,14 @@ html, body {
   );
 }
 
+.calendar-cell.fertile-line-high::before {
+  background: repeating-linear-gradient(
+    90deg,
+    #FF8C32 0, #FF8C32 4px,
+    transparent 4px, transparent 8px
+  );
+}
+
 /* 시작: 오른쪽 절반만 */
 .calendar-cell.fertile-line-start::before {
   left: 50%;
@@ -365,7 +385,8 @@ html, body {
 
 /* 배란일 원형 점 */
 .calendar-cell.ovulation-dot::after,
-.calendar-cell.ovulation-dot-predicted::after {
+.calendar-cell.ovulation-dot-predicted::after,
+.calendar-cell.ovulation-dot-high::after {
   content: '';
   position: absolute;
   top: 33px;        /* 37px - 4px = 원형 중심이 선(37px)에 맞춰짐 */
@@ -453,6 +474,7 @@ html, body {
 .dot.period    { background: var(--color-period); }
 .dot.ovulation { background: var(--color-ovulation); }
 .dot.intimate  { background: var(--color-primary); }
+.dot.high-risk { background: #FF8C32; }
 .dot.fertile {
   background: repeating-linear-gradient(
     90deg,
@@ -464,6 +486,133 @@ html, body {
   border-radius: 0;
   width: 18px;
   height: 2px;
+}
+
+/* ── Combined mode ovulation dot (high-risk line 위) ── */
+.calendar-cell.ovulation-dot-high::after {
+  background: #FF8C32;
+  border: 2px solid #fff;
+}
+
+/* ── Method selector ── */
+.method-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.method-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.method-option:has(input:checked) {
+  border-color: var(--color-primary);
+  background: #FFF0F8;
+}
+
+.method-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.method-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.method-option-content strong {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.method-option-content span {
+  font-size: 12px;
+  color: var(--color-text-light);
+}
+
+.info-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #D0D0D0;
+  background: #F5F5F5;
+  font-size: 13px;
+  font-weight: 700;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+}
+.info-btn:active { background: #E8E8E8; border-color: #BBB; }
+
+/* ── Fertile info table ── */
+.method-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.method-info-table th {
+  background: #FFF0F8;
+  color: var(--color-primary-dark);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.method-info-table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  line-height: 1.5;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.method-info-table tr:last-child td {
+  border-bottom: none;
+}
+
+.method-info-table tbody tr:nth-child(odd) td {
+  background: #FAFAFA;
+}
+
+.method-info-note {
+  background: #FFF6EE;
+  border: 1.5px solid #FFD0A0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--color-text);
+}
+
+.method-info-note-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #CC6600;
+  margin-bottom: 6px;
 }
 
 /* ── Modals ── */

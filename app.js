@@ -115,6 +115,7 @@ function defaultData() {
   return {
     cycleLength: 30,
     periodLength: 5,
+    fertileMethod: 'standard',
     cycles: [],           // [{startDate: 'YYYY-MM-DD', endDate?: 'YYYY-MM-DD'}]
     intimateDates: [],    // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
@@ -229,6 +230,59 @@ function getFertileAndOvulationDays() {
   return { fertile, ovulation, predictedFertile, predictedOvulation };
 }
 
+function getShortestLongestCycleLengths() {
+  const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  if (sorted.length < 2) return { shortest: data.cycleLength, longest: data.cycleLength };
+  const lengths = [];
+  for (let i = 1; i < sorted.length; i++) {
+    lengths.push(diffDays(sorted[i - 1].startDate, sorted[i].startDate));
+  }
+  return { shortest: Math.min(...lengths), longest: Math.max(...lengths) };
+}
+
+function getFertileDaysCombined() {
+  const { shortest, longest } = getShortestLongestCycleLengths();
+  const actualStarts = data.cycles.map(c => c.startDate);
+  const predictedStarts = getPredictedCycles();
+
+  const fertileAll = new Set();
+  const highRisk = new Set();
+  const ovulationActual = new Set();
+  const ovulationPredicted = new Set();
+
+  for (const [starts, ovSet] of [[actualStarts, ovulationActual], [predictedStarts, ovulationPredicted]]) {
+    for (const start of starts) {
+      const ovDate = addDays(start, data.cycleLength - 14);
+      ovSet.add(ovDate);
+
+      // 표준일 피임법: 생리 시작일 기준 8~19일째
+      const standard = new Set();
+      for (let i = 7; i <= 18; i++) standard.add(addDays(start, i));
+
+      // 크나우스 오기노법: (최단주기-19) ~ (최장주기-10)일째
+      const knaus = new Set();
+      const kFrom = Math.max(0, shortest - 20);
+      const kTo = longest - 11;
+      for (let i = kFrom; i <= kTo; i++) knaus.add(addDays(start, i));
+
+      // ACOG 가이드: 배란일(추정) 전5일~후2일
+      const acog = new Set();
+      for (let i = -5; i <= 2; i++) acog.add(addDays(ovDate, i));
+
+      for (const d of standard) fertileAll.add(d);
+      for (const d of knaus)    fertileAll.add(d);
+      for (const d of acog)     fertileAll.add(d);
+
+      // 3가지 모두 해당되는 날 = 고위험
+      for (const d of standard) {
+        if (knaus.has(d) && acog.has(d)) highRisk.add(d);
+      }
+    }
+  }
+
+  return { fertileAll, highRisk, ovulationActual, ovulationPredicted };
+}
+
 function getNextPeriodInfo() {
   if (!data.cycles.length) return null;
   const sorted = [...data.cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -319,11 +373,29 @@ function renderCalendar(year, month) {
   const today = toDateStr(new Date());
   const actualPeriod = getActualPeriodDays();
   const predictedPeriod = getPredictedPeriodDays();
-  const { fertile, ovulation, predictedFertile, predictedOvulation } = getFertileAndOvulationDays();
   const intimate = new Set(data.intimateDates);
 
-  const fertileAll = new Set([...fertile, ...ovulation]);
-  const fertileAllPredicted = new Set([...predictedFertile, ...predictedOvulation]);
+  const isCombined = (data.fertileMethod || 'standard') === 'combined';
+  let fertileAll, fertileAllPredicted, ovulation, predictedOvulation;
+  let fertileCombined, highRisk, ovulationActual, ovulationPredicted;
+
+  if (isCombined) {
+    const r = getFertileDaysCombined();
+    fertileCombined = r.fertileAll;
+    highRisk = r.highRisk;
+    ovulationActual = r.ovulationActual;
+    ovulationPredicted = r.ovulationPredicted;
+    fertileAll = new Set(); fertileAllPredicted = new Set();
+    ovulation = new Set(); predictedOvulation = new Set();
+  } else {
+    const fert = getFertileAndOvulationDays();
+    ovulation = fert.ovulation;
+    predictedOvulation = fert.predictedOvulation;
+    fertileAll = new Set([...fert.fertile, ...fert.ovulation]);
+    fertileAllPredicted = new Set([...fert.predictedFertile, ...fert.predictedOvulation]);
+    fertileCombined = new Set(); highRisk = new Set();
+    ovulationActual = new Set(); ovulationPredicted = new Set();
+  }
 
   const firstDow = new Date(year, month, 1).getDay();
   const totalDays = new Date(year, month + 1, 0).getDate();
@@ -348,6 +420,13 @@ function renderCalendar(year, month) {
       classes.push('period');
     } else if (predictedPeriod.has(dateStr)) {
       classes.push('period-predicted');
+    } else if (isCombined && fertileCombined.has(dateStr)) {
+      const dow = fromDateStr(dateStr).getDay();
+      classes.push(highRisk.has(dateStr) ? 'fertile-line-high' : 'fertile-line');
+      if (!fertileCombined.has(addDays(dateStr, -1)) || dow === 0) classes.push('fertile-line-start');
+      if (!fertileCombined.has(addDays(dateStr, 1))  || dow === 6) classes.push('fertile-line-end');
+      if (ovulationActual.has(dateStr))    classes.push(highRisk.has(dateStr) ? 'ovulation-dot-high' : 'ovulation-dot');
+      if (ovulationPredicted.has(dateStr)) classes.push('ovulation-dot-predicted');
     } else if (fertileAll.has(dateStr)) {
       const dow = fromDateStr(dateStr).getDay();
       classes.push('fertile-line');
@@ -375,7 +454,7 @@ function renderCalendar(year, month) {
     if (intimate.has(dateStr)) {
       const h = document.createElement('span');
       h.className = 'indicator-heart';
-      h.textContent = '🍓';
+      h.textContent = '💟';
       cell.appendChild(h);
     }
 
@@ -407,9 +486,17 @@ function openDayModal(dateStr) {
   let statusParts = [];
   if (actualPeriod.has(dateStr)) statusParts.push('🩸 생리 중');
   if (predictedPeriod.has(dateStr)) statusParts.push('🩸 생리 예정일');
-  if (ovulation.has(dateStr)) statusParts.push('🌸 배란일');
-  if (predictedOvulation.has(dateStr)) statusParts.push('🌸 배란일 예정');
-  if (fertile.has(dateStr) || predictedFertile.has(dateStr)) statusParts.push('💙 가임기');
+  if ((data.fertileMethod || 'standard') === 'combined') {
+    const { fertileAll: fa, highRisk: hr, ovulationActual: oa, ovulationPredicted: op } = getFertileDaysCombined();
+    if (hr.has(dateStr)) statusParts.push('🔴 고위험 가임기');
+    else if (fa.has(dateStr)) statusParts.push('💙 가임기');
+    if (oa.has(dateStr)) statusParts.push('🌸 배란일 (추정)');
+    if (op.has(dateStr)) statusParts.push('🌸 배란일 예정 (추정)');
+  } else {
+    if (ovulation.has(dateStr)) statusParts.push('🌸 배란일');
+    if (predictedOvulation.has(dateStr)) statusParts.push('🌸 배란일 예정');
+    if (fertile.has(dateStr) || predictedFertile.has(dateStr)) statusParts.push('💙 가임기');
+  }
 
   document.getElementById('modalStatus').textContent = statusParts.join('  ') || '';
 
@@ -434,7 +521,7 @@ function openDayModal(dateStr) {
   // Intimate button state
   const isIntimate = data.intimateDates.includes(dateStr);
   const intimateBtn = document.getElementById('toggleIntimate');
-  intimateBtn.textContent = isIntimate ? '🍓 사랑한 날 해제' : '🍓 사랑한 날 기록';
+  intimateBtn.textContent = isIntimate ? '💟 사랑한 날 해제' : '💟 사랑한 날 기록';
   intimateBtn.classList.toggle('active', isIntimate);
 
   // Memo
@@ -507,7 +594,7 @@ function toggleIntimate() {
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
-    showToast('사랑한 날이 기록되었어요 🍓');
+    showToast('사랑한 날이 기록되었어요 💟');
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
@@ -615,6 +702,8 @@ function openSettings() {
   document.getElementById('periodLength').value = data.periodLength;
   document.getElementById('notifyDaysBefore').value = data.notifications.daysBefore;
   document.getElementById('notifyTime').value = data.notifications.notifyTime ?? '08:00';
+  const method = data.fertileMethod || 'standard';
+  document.querySelectorAll('input[name="fertileMethod"]').forEach(r => { r.checked = r.value === method; });
   updateNotifStatus();
   updateSyncStatus();
   document.getElementById('settingsModal').classList.remove('hidden');
@@ -634,10 +723,13 @@ function saveSettings() {
   if (pl >= 2 && pl <= 10) data.periodLength = pl;
   if (nb >= 0 && nb <= 7) data.notifications.daysBefore = nb;
   if (nt) data.notifications.notifyTime = nt;
+  const selectedMethod = document.querySelector('input[name="fertileMethod"]:checked');
+  if (selectedMethod) data.fertileMethod = selectedMethod.value;
 
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
+  updateLegend();
   updatePushServer();
   closeSettings();
   showToast('설정이 저장되었어요');
@@ -939,6 +1031,24 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ── Fertile Info Modal ─────────────────────────────────
+function openFertileInfo() {
+  document.getElementById('fertileInfoModal').classList.remove('hidden');
+}
+
+function closeFertileInfo() {
+  document.getElementById('fertileInfoModal').classList.add('hidden');
+}
+
+// ── Legend ─────────────────────────────────────────────
+function updateLegend() {
+  const isCombined = (data.fertileMethod || 'standard') === 'combined';
+  const highRiskEl = document.getElementById('legendHighRisk');
+  const ovulationEl = document.getElementById('legendOvulation');
+  if (highRiskEl) highRiskEl.classList.toggle('hidden', !isCombined);
+  if (ovulationEl) ovulationEl.classList.toggle('hidden', isCombined);
+}
+
 // ── Navigation ─────────────────────────────────────────
 function prevMonth() {
   if (currentMonth === 0) { currentYear--; currentMonth = 11; }
@@ -1066,6 +1176,10 @@ function init() {
     if (e.target === this) closeStats();
   });
   document.getElementById('closeStats').addEventListener('click', closeStats);
+  document.getElementById('closeFertileInfo').addEventListener('click', closeFertileInfo);
+  document.getElementById('fertileInfoModal').addEventListener('click', function(e) {
+    if (e.target === this) closeFertileInfo();
+  });
 
   // Sync events
   document.getElementById('syncCreateBtn').addEventListener('click', () => {
@@ -1090,6 +1204,7 @@ function init() {
     showToast('동기화 해제됨');
   });
 
+  updateLegend();
   initSwipe();
   registerSW();
 
