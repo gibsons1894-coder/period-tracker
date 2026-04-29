@@ -546,19 +546,19 @@ html, body {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1.5px solid #D0D0D0;
-  background: #F5F5F5;
+  border: none;
+  background: var(--color-primary);
   font-size: 13px;
   font-weight: 700;
-  color: #999;
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: background 0.15s, border-color 0.15s;
+  transition: opacity 0.15s;
 }
-.info-btn:active { background: #E8E8E8; border-color: #BBB; }
+.info-btn:active { opacity: 0.75; }
 
 /* ── Fertile info table ── */
 .method-info-table {
