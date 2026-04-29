@@ -91,13 +91,40 @@ function _applyServerData(serverData, ts) {
 
 function updateSyncStatus() {
   const el = document.getElementById('syncStatus');
+  const shareBtn = document.getElementById('syncShareBtn');
   if (!el) return;
   if (syncCode) {
     el.textContent = `연결됨 · ${syncCode}`;
     el.style.color = '#27AE60';
+    if (shareBtn) shareBtn.classList.remove('hidden');
   } else {
     el.textContent = '동기화 꺼짐';
     el.style.color = '';
+    if (shareBtn) shareBtn.classList.add('hidden');
+  }
+}
+
+async function shareSyncCode() {
+  if (!syncCode) return;
+  const shareText = `달력 앱 동기화 코드: ${syncCode}\n\n① 달력 앱 열기\n② 설정 → 기기 동기화\n③ 코드 입력 후 연결 탭`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: '달력 동기화 코드', text: shareText });
+    } catch (e) {
+      if (e.name !== 'AbortError') fallbackCopy(syncCode);
+    }
+  } else {
+    fallbackCopy(syncCode);
+  }
+}
+
+async function fallbackCopy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('코드가 클립보드에 복사됐어요 📋');
+  } catch {
+    showToast('복사에 실패했어요');
   }
 }
 
@@ -1182,6 +1209,7 @@ function init() {
   });
 
   // Sync events
+  document.getElementById('syncShareBtn').addEventListener('click', shareSyncCode);
   document.getElementById('syncCreateBtn').addEventListener('click', () => {
     if (syncCode && !confirm('새 코드를 만들면 기존 연결이 끊어집니다. 계속할까요?')) return;
     setSyncCode(generateSyncCode());

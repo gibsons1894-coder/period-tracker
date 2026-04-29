@@ -778,6 +778,24 @@ html, body {
   font-weight: 500;
 }
 
+.sync-share-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #F0FFF4;
+  color: #27AE60;
+  border: 2px solid #C8F7DC;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.sync-share-btn:active { background: #D5F5E3; }
+
 .sync-row {
   display: flex;
   gap: 8px;
