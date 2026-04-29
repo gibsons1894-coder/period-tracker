@@ -176,9 +176,6 @@
         </div>
       </div>
 
-      <div class="settings-group">
-        <button id="installGuideBtn" class="backup-btn">📲 바탕화면에 앱 설치하기</button>
-      </div>
 
       <div class="settings-group">
         <div class="section-title">데이터 백업 / 복원</div>
@@ -237,59 +234,31 @@
   </div>
 </div>
 
-<!-- Install Guide Modal -->
-<div id="installGuideModal" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>📲 앱 설치 방법</h2>
-      <button id="closeInstallGuide" class="close-btn" aria-label="닫기">✕</button>
+<!-- First Launch Install Guide -->
+<div id="installGuide" class="install-guide-overlay hidden">
+  <div class="install-guide-box">
+    <div class="install-guide-title">📲 홈 화면에 추가하기</div>
+
+    <div class="install-guide-section">
+      <div class="install-guide-os-badge">🍎 아이폰 — Safari</div>
+      <div class="install-guide-warning">⚠️ 반드시 <strong>Safari</strong>에서 진행하세요</div>
+      <ol class="install-guide-steps">
+        <li><span class="install-step-icon">⬆️</span><span>하단 <strong>공유 버튼</strong> 탭</span></li>
+        <li><span class="install-step-icon">📋</span><span><strong>"홈 화면에 추가"</strong> 탭</span></li>
+        <li><span class="install-step-icon">✅</span><span>오른쪽 상단 <strong>"추가"</strong> 탭</span></li>
+      </ol>
     </div>
-    <div class="modal-body">
-      <div class="install-guide-section">
-        <div class="install-guide-os-badge">🍎 아이폰 (iOS / Safari)</div>
-        <div class="install-guide-warning">⚠️ 반드시 <strong>Safari</strong> 브라우저에서 진행하세요</div>
-        <ol class="install-guide-steps">
-          <li>
-            <span class="install-step-icon">🌐</span>
-            <span>Safari로 이 페이지 접속</span>
-          </li>
-          <li>
-            <span class="install-step-icon">⬆️</span>
-            <span>하단 <strong>공유 버튼</strong> 탭<br><small>(네모에 위쪽 화살표 아이콘)</small></span>
-          </li>
-          <li>
-            <span class="install-step-icon">📋</span>
-            <span>스크롤 내려서 <strong>"홈 화면에 추가"</strong> 탭</span>
-          </li>
-          <li>
-            <span class="install-step-icon">✅</span>
-            <span>오른쪽 상단 <strong>"추가"</strong> 탭</span>
-          </li>
-        </ol>
-      </div>
-      <div class="install-guide-section">
-        <div class="install-guide-os-badge">🤖 안드로이드 (Chrome)</div>
-        <ol class="install-guide-steps">
-          <li>
-            <span class="install-step-icon">🌐</span>
-            <span>Chrome으로 이 페이지 접속</span>
-          </li>
-          <li>
-            <span class="install-step-icon">⋮</span>
-            <span>주소창 오른쪽 <strong>점 세 개(⋮) 메뉴</strong> 탭</span>
-          </li>
-          <li>
-            <span class="install-step-icon">📲</span>
-            <span><strong>"앱 설치"</strong> 또는 <strong>"홈 화면에 추가"</strong> 탭</span>
-          </li>
-          <li>
-            <span class="install-step-icon">✅</span>
-            <span>확인 팝업에서 <strong>"설치"</strong> 탭</span>
-          </li>
-        </ol>
-        <div class="install-guide-tip">💡 자동으로 하단에 설치 배너가 뜨기도 해요</div>
-      </div>
+
+    <div class="install-guide-section">
+      <div class="install-guide-os-badge">🤖 안드로이드 — Chrome</div>
+      <ol class="install-guide-steps">
+        <li><span class="install-step-icon">⋮</span><span>오른쪽 상단 <strong>점 세 개 메뉴</strong> 탭</span></li>
+        <li><span class="install-step-icon">📲</span><span><strong>"앱 설치"</strong> 탭</span></li>
+        <li><span class="install-step-icon">✅</span><span><strong>"설치"</strong> 탭</span></li>
+      </ol>
     </div>
+
+    <button id="installGuideDismiss" class="install-guide-dismiss">확인했어요</button>
   </div>
 </div>
 

@@ -1190,20 +1190,48 @@ html, body {
   line-height: 1.6;
 }
 
-/* ── Install Guide ───────────────────────────────────── */
+/* ── Install Guide (first launch overlay) ────────────── */
+.install-guide-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.install-guide-overlay.hidden { display: none; }
+
+.install-guide-box {
+  background: #fff;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+  animation: slideUp 0.3s ease;
+}
+
+.install-guide-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
 .install-guide-section {
   margin-bottom: 20px;
 }
 
 .install-guide-os-badge {
   display: inline-block;
-  background: var(--color-primary, #ff6b9d);
+  background: var(--color-primary);
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .install-guide-warning {
@@ -1213,7 +1241,7 @@ html, body {
   padding: 10px 14px;
   font-size: 13px;
   color: #6D4C00;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   line-height: 1.5;
 }
 
@@ -1223,32 +1251,26 @@ html, body {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .install-guide-steps li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   background: #F9F9F9;
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   font-size: 14px;
   line-height: 1.5;
   color: #333;
 }
 
-.install-guide-steps li small {
-  font-size: 12px;
-  color: #888;
-}
-
 .install-step-icon {
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
-  width: 28px;
+  width: 24px;
   text-align: center;
-  line-height: 1.4;
 }
 
 .install-guide-tip {
@@ -1258,17 +1280,21 @@ html, body {
   padding: 10px 14px;
   font-size: 13px;
   color: #2E7D32;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
-.install-guide-installed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 24px 0;
-  text-align: center;
-  color: #2E7D32;
+.install-guide-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
 }
+.install-guide-dismiss:active { opacity: 0.85; }

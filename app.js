@@ -1111,13 +1111,17 @@ function closeFertileInfo() {
   document.getElementById('fertileInfoModal').classList.add('hidden');
 }
 
-// ── Install Guide modal ────────────────────────────────
-function openInstallGuide() {
-  document.getElementById('installGuideModal').classList.remove('hidden');
+// ── Install Guide (first launch) ───────────────────────
+function maybeShowInstallGuide() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (isStandalone) return;
+  if (localStorage.getItem('installGuideSeen')) return;
+  document.getElementById('installGuide').classList.remove('hidden');
 }
 
-function closeInstallGuide() {
-  document.getElementById('installGuideModal').classList.add('hidden');
+function dismissInstallGuide() {
+  localStorage.setItem('installGuideSeen', '1');
+  document.getElementById('installGuide').classList.add('hidden');
 }
 
 // ── Legend ─────────────────────────────────────────────
@@ -1261,11 +1265,7 @@ function init() {
   document.getElementById('fertileInfoModal').addEventListener('click', function(e) {
     if (e.target === this) closeFertileInfo();
   });
-  document.getElementById('installGuideBtn').addEventListener('click', () => { closeSettings(); openInstallGuide(); });
-  document.getElementById('closeInstallGuide').addEventListener('click', closeInstallGuide);
-  document.getElementById('installGuideModal').addEventListener('click', function(e) {
-    if (e.target === this) closeInstallGuide();
-  });
+  document.getElementById('installGuideDismiss').addEventListener('click', dismissInstallGuide);
 
   // Sync events
   document.getElementById('syncShareBtn').addEventListener('click', shareSyncCode);
@@ -1294,6 +1294,8 @@ function init() {
   updateLegend();
   initSwipe();
   registerSW();
+
+  maybeShowInstallGuide();
 
   // Check notifications after a short delay
   setTimeout(checkAndNotify, 1500);
