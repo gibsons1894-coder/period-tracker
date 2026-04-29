@@ -106,13 +106,19 @@ function updateSyncStatus() {
 
 async function shareSyncCode() {
   if (!syncCode) return;
-  const shareText = `달력 앱 동기화 코드: ${syncCode}\n\n① 달력 앱 열기\n② 설정 → 기기 동기화\n③ 코드 입력 후 연결 탭`;
 
   if (navigator.share) {
     try {
-      await navigator.share({ title: '달력 동기화 코드', text: shareText });
+      await navigator.share({ text: syncCode });
     } catch (e) {
-      if (e.name !== 'AbortError') fallbackCopy(syncCode);
+      if (e.name === 'AbortError') return;
+      fallbackCopy(syncCode);
+      return;
+    }
+    try {
+      await navigator.share({ text: '① 달력 앱 열기\n② 설정 → 기기 동기화\n③ 코드 입력 후 연결 탭' });
+    } catch (e) {
+      // 두 번째 공유는 취소해도 무시
     }
   } else {
     fallbackCopy(syncCode);
