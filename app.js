@@ -13,7 +13,7 @@ let _pushSubscription = null;
 const STORAGE_KEY = 'periodTrackerData_v1';
 
 const INTIMATE_ICONS = ['💟','❤️','🩷','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗','💖','💝','💘','🌸','🍓','💋','🌹','🦋'];
-const RED_HEARTS = new Set(['❤️','❤️‍🔥']);
+const RED_HEARTS = new Set(['❤️','🩷','🧡','💕','💞','💓','💗','💖','💝','💘','🌸','🍓','💋','🌹','🦋']);
 const SYNC_CODE_KEY = 'syncCode';
 const SYNC_TS_KEY   = 'syncLastModified';
 
