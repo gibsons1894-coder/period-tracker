@@ -4,6 +4,13 @@
 const PUSH_SERVER_URL  = 'https://period-tracker-push.life-app.workers.dev';
 const VAPID_PUBLIC_KEY = 'URfnrL_y-iMmUH5-Ebz6VAIbAE8mep3lr8H2wClZZqw';
 
+// ── Android PWA install prompt ─────────────────────────
+let _installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _installPrompt = e;
+});
+
 // ── State ──────────────────────────────────────────────
 let currentYear, currentMonth;
 let selectedDate = null;
@@ -1115,6 +1122,15 @@ function closeFertileInfo() {
 function maybeShowInstallGuide() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (isStandalone) return;
+
+  // Android Chrome: 브라우저 설치 팝업 자동 표시
+  if (_installPrompt) {
+    _installPrompt.prompt();
+    _installPrompt.userChoice.then(() => { _installPrompt = null; });
+    return;
+  }
+
+  // iOS 등 나머지: 최초 1회만 가이드 표시
   if (localStorage.getItem('installGuideSeen')) return;
   document.getElementById('installGuide').classList.remove('hidden');
 }
