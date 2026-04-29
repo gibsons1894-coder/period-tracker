@@ -1,4 +1,4 @@
-const CACHE_NAME = 'period-tracker-v17';
+const CACHE_NAME = 'period-tracker-v18';
 const IMAGE_CACHE = 'period-tracker-images-v1';
 const IMAGE_URLS = ['./icon_192.png', './icon_512.png', './neulsang_logo.png'];
 
