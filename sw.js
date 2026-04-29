@@ -31,9 +31,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML / CSS / JS: 네트워크 우선 → 실패 시 캐시 (항상 최신 코드 제공)
+  // HTML / CSS / JS: 항상 서버에서 최신 파일 fetch (HTTP 캐시 우회)
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: 'no-cache' })
       .then(response => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
