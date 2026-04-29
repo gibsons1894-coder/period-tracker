@@ -1083,6 +1083,7 @@ function importData(file) {
       saveData();
       renderCalendar(currentYear, currentMonth);
       updateCycleInfoBar();
+      updateLegend();
       showToast('복원되었어요 📥');
     } catch {
       showToast('올바른 백업 파일이 아니에요');
