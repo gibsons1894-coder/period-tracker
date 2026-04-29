@@ -177,6 +177,10 @@
       </div>
 
       <div class="settings-group">
+        <button id="installGuideBtn" class="backup-btn">📲 바탕화면에 앱 설치하기</button>
+      </div>
+
+      <div class="settings-group">
         <div class="section-title">데이터 백업 / 복원</div>
         <button id="exportData" class="backup-btn">📤 백업 파일 저장</button>
         <label id="importLabel" class="backup-btn import-btn">
@@ -228,6 +232,68 @@
         <div class="method-info-note-title">🔴 고위험 가임기란?</div>
         세 가지 방법 모두에서 가임기로 계산되는 날짜입니다.<br>
         주황색 점선으로 표시되며, 임신 가능성이 가장 높은 구간으로 여러 방법이 공통으로 경고하는 날입니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Install Guide Modal -->
+<div id="installGuideModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📲 앱 설치 방법</h2>
+      <button id="closeInstallGuide" class="close-btn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="installGuideIOS" class="install-guide-section hidden">
+        <div class="install-guide-os-badge">🍎 아이폰 (iOS / Safari)</div>
+        <div class="install-guide-warning">⚠️ 반드시 <strong>Safari</strong> 브라우저에서 진행하세요</div>
+        <ol class="install-guide-steps">
+          <li>
+            <span class="install-step-icon">🌐</span>
+            <span>Safari로 이 페이지 접속</span>
+          </li>
+          <li>
+            <span class="install-step-icon">⬆️</span>
+            <span>하단 <strong>공유 버튼</strong> 탭<br><small>(네모에 위쪽 화살표 아이콘)</small></span>
+          </li>
+          <li>
+            <span class="install-step-icon">📋</span>
+            <span>스크롤 내려서 <strong>"홈 화면에 추가"</strong> 탭</span>
+          </li>
+          <li>
+            <span class="install-step-icon">✅</span>
+            <span>오른쪽 상단 <strong>"추가"</strong> 탭</span>
+          </li>
+        </ol>
+      </div>
+      <div id="installGuideAndroid" class="install-guide-section hidden">
+        <div class="install-guide-os-badge">🤖 안드로이드 (Chrome)</div>
+        <ol class="install-guide-steps">
+          <li>
+            <span class="install-step-icon">🌐</span>
+            <span>Chrome으로 이 페이지 접속</span>
+          </li>
+          <li>
+            <span class="install-step-icon">⋮</span>
+            <span>주소창 오른쪽 <strong>점 세 개(⋮) 메뉴</strong> 탭</span>
+          </li>
+          <li>
+            <span class="install-step-icon">📲</span>
+            <span><strong>"앱 설치"</strong> 또는 <strong>"홈 화면에 추가"</strong> 탭</span>
+          </li>
+          <li>
+            <span class="install-step-icon">✅</span>
+            <span>확인 팝업에서 <strong>"설치"</strong> 탭</span>
+          </li>
+        </ol>
+        <div class="install-guide-tip">💡 자동으로 하단에 설치 배너가 뜨기도 해요</div>
+      </div>
+      <div id="installGuideAlreadyInstalled" class="install-guide-section hidden">
+        <div class="install-guide-installed">
+          <span style="font-size:48px">✅</span>
+          <p>이미 앱으로 설치되어 있어요!</p>
+        </div>
       </div>
     </div>
   </div>

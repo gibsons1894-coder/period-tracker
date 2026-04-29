@@ -1111,6 +1111,34 @@ function closeFertileInfo() {
   document.getElementById('fertileInfoModal').classList.add('hidden');
 }
 
+// ── Install Guide modal ────────────────────────────────
+function openInstallGuide() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+  document.getElementById('installGuideIOS').classList.add('hidden');
+  document.getElementById('installGuideAndroid').classList.add('hidden');
+  document.getElementById('installGuideAlreadyInstalled').classList.add('hidden');
+
+  if (isStandalone) {
+    document.getElementById('installGuideAlreadyInstalled').classList.remove('hidden');
+  } else if (isIOS) {
+    document.getElementById('installGuideIOS').classList.remove('hidden');
+  } else if (isAndroid) {
+    document.getElementById('installGuideAndroid').classList.remove('hidden');
+  } else {
+    document.getElementById('installGuideIOS').classList.remove('hidden');
+    document.getElementById('installGuideAndroid').classList.remove('hidden');
+  }
+
+  document.getElementById('installGuideModal').classList.remove('hidden');
+}
+
+function closeInstallGuide() {
+  document.getElementById('installGuideModal').classList.add('hidden');
+}
+
 // ── Legend ─────────────────────────────────────────────
 function updateLegend() {
   const isCombined = (data.fertileMethod || 'standard') === 'combined';
@@ -1251,6 +1279,11 @@ function init() {
   document.getElementById('closeFertileInfo').addEventListener('click', closeFertileInfo);
   document.getElementById('fertileInfoModal').addEventListener('click', function(e) {
     if (e.target === this) closeFertileInfo();
+  });
+  document.getElementById('installGuideBtn').addEventListener('click', openInstallGuide);
+  document.getElementById('closeInstallGuide').addEventListener('click', closeInstallGuide);
+  document.getElementById('installGuideModal').addEventListener('click', function(e) {
+    if (e.target === this) closeInstallGuide();
   });
 
   // Sync events
