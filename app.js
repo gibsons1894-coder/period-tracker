@@ -1280,7 +1280,7 @@ function init() {
   document.getElementById('fertileInfoModal').addEventListener('click', function(e) {
     if (e.target === this) closeFertileInfo();
   });
-  document.getElementById('installGuideBtn').addEventListener('click', openInstallGuide);
+  document.getElementById('installGuideBtn').addEventListener('click', () => { closeSettings(); openInstallGuide(); });
   document.getElementById('closeInstallGuide').addEventListener('click', closeInstallGuide);
   document.getElementById('installGuideModal').addEventListener('click', function(e) {
     if (e.target === this) closeInstallGuide();
