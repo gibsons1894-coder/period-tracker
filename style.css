@@ -421,7 +421,7 @@ html, body {
 .memo-preview {
   font-size: 9px;
   line-height: 1.35;
-  color: #AAA;
+  color: #333;
   width: 100%;
   text-align: center;
   overflow: hidden;
@@ -447,7 +447,7 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
   pointer-events: none;
   z-index: 1;
