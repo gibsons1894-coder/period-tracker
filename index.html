@@ -74,7 +74,11 @@
       <div class="modal-actions">
         <button id="togglePeriod" class="action-btn period-btn">🩸 생리 시작일로 설정</button>
         <button id="togglePeriodEnd" class="action-btn period-end-btn hidden">🩸 생리 종료일로 설정</button>
-        <button id="toggleIntimate" class="action-btn intimate-btn">💟 사랑한 날 기록</button>
+        <div class="intimate-row">
+          <button id="toggleIntimate" class="action-btn intimate-btn" style="flex:1">💟 사랑한 날 기록</button>
+          <button id="editIntimateIcon" class="edit-icon-btn" aria-label="아이콘 변경">✏️</button>
+        </div>
+        <div id="iconPicker" class="icon-picker hidden"></div>
       </div>
       <div class="memo-section">
         <label for="memoInput">메모</label>

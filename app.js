@@ -11,6 +11,9 @@ let data = {};
 let _pushSubscription = null;
 
 const STORAGE_KEY = 'periodTrackerData_v1';
+
+const INTIMATE_ICONS = ['💟','❤️','🩷','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗','💖','💝','💘','🌸','🍓','💋','🌹','🦋'];
+const RED_HEARTS = new Set(['❤️','❤️‍🔥']);
 const SYNC_CODE_KEY = 'syncCode';
 const SYNC_TS_KEY   = 'syncLastModified';
 
@@ -150,6 +153,7 @@ function defaultData() {
     periodLength: 5,
     fertileMethod: 'standard',
     cycles: [],           // [{startDate: 'YYYY-MM-DD', endDate?: 'YYYY-MM-DD'}]
+    intimateIcon: '💟',
     intimateDates: [],    // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
     notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
@@ -485,9 +489,10 @@ function renderCalendar(year, month) {
     ind.className = 'indicators';
 
     if (intimate.has(dateStr)) {
+      const icon = data.intimateIcon || '💟';
       const h = document.createElement('span');
-      h.className = 'indicator-heart';
-      h.textContent = '💟';
+      h.className = 'indicator-heart' + (RED_HEARTS.has(icon) ? ' indicator-heart-bg' : '');
+      h.textContent = icon;
       cell.appendChild(h);
     }
 
@@ -554,8 +559,10 @@ function openDayModal(dateStr) {
   // Intimate button state
   const isIntimate = data.intimateDates.includes(dateStr);
   const intimateBtn = document.getElementById('toggleIntimate');
-  intimateBtn.textContent = isIntimate ? '💟 사랑한 날 해제' : '💟 사랑한 날 기록';
+  const intimateIcon = data.intimateIcon || '💟';
+  intimateBtn.textContent = isIntimate ? `${intimateIcon} 사랑한 날 해제` : `${intimateIcon} 사랑한 날 기록`;
   intimateBtn.classList.toggle('active', isIntimate);
+  document.getElementById('iconPicker').classList.add('hidden');
 
   // Memo
   document.getElementById('memoInput').value = data.memos[dateStr] || '';
@@ -565,7 +572,37 @@ function openDayModal(dateStr) {
 
 function closeDayModal() {
   document.getElementById('dayModal').classList.add('hidden');
+  document.getElementById('iconPicker').classList.add('hidden');
   selectedDate = null;
+}
+
+function openIconPicker() {
+  const picker = document.getElementById('iconPicker');
+  if (!picker.classList.contains('hidden')) {
+    picker.classList.add('hidden');
+    return;
+  }
+  const current = data.intimateIcon || '💟';
+  picker.innerHTML = INTIMATE_ICONS.map((e, i) =>
+    `<button class="icon-picker-btn${e === current ? ' selected' : ''}" onclick="selectIntimateIcon(${i})">${e}</button>`
+  ).join('');
+  picker.classList.remove('hidden');
+}
+
+function selectIntimateIcon(idx) {
+  const icon = INTIMATE_ICONS[idx];
+  data.intimateIcon = icon;
+  saveData();
+
+  const intimateBtn = document.getElementById('toggleIntimate');
+  const isActive = intimateBtn.classList.contains('active');
+  intimateBtn.textContent = isActive ? `${icon} 사랑한 날 해제` : `${icon} 사랑한 날 기록`;
+
+  document.querySelectorAll('.icon-picker-btn').forEach((btn, i) => {
+    btn.classList.toggle('selected', i === idx);
+  });
+
+  renderCalendar(currentYear, currentMonth);
 }
 
 // ── Toggle actions ─────────────────────────────────────
@@ -627,7 +664,7 @@ function toggleIntimate() {
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
-    showToast('사랑한 날이 기록되었어요 💟');
+    showToast(`사랑한 날이 기록되었어요 ${data.intimateIcon || '💟'}`);
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
@@ -1187,6 +1224,7 @@ function init() {
   document.getElementById('togglePeriod').addEventListener('click', togglePeriodStart);
   document.getElementById('togglePeriodEnd').addEventListener('click', togglePeriodEnd);
   document.getElementById('toggleIntimate').addEventListener('click', toggleIntimate);
+  document.getElementById('editIntimateIcon').addEventListener('click', openIconPicker);
   document.getElementById('saveMemo').addEventListener('click', saveMemo);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
