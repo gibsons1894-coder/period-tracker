@@ -1113,25 +1113,6 @@ function closeFertileInfo() {
 
 // ── Install Guide modal ────────────────────────────────
 function openInstallGuide() {
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isAndroid = /android/i.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-
-  document.getElementById('installGuideIOS').classList.add('hidden');
-  document.getElementById('installGuideAndroid').classList.add('hidden');
-  document.getElementById('installGuideAlreadyInstalled').classList.add('hidden');
-
-  if (isStandalone) {
-    document.getElementById('installGuideAlreadyInstalled').classList.remove('hidden');
-  } else if (isIOS) {
-    document.getElementById('installGuideIOS').classList.remove('hidden');
-  } else if (isAndroid) {
-    document.getElementById('installGuideAndroid').classList.remove('hidden');
-  } else {
-    document.getElementById('installGuideIOS').classList.remove('hidden');
-    document.getElementById('installGuideAndroid').classList.remove('hidden');
-  }
-
   document.getElementById('installGuideModal').classList.remove('hidden');
 }
 
