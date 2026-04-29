@@ -497,9 +497,9 @@ function renderCalendar(year, month) {
     }
 
     if (data.memos[dateStr]) {
-      const m = document.createElement('span');
-      m.className = 'indicator-memo';
-      m.textContent = '📝';
+      const m = document.createElement('div');
+      m.className = 'memo-preview';
+      m.textContent = data.memos[dateStr];
       ind.appendChild(m);
     }
 
