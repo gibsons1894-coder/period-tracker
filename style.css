@@ -1,23 +1,23 @@
 :root {
   --color-primary: #E91E8C;
   --color-primary-dark: #C2185B;
-  --color-period: #FF4757;
-  --color-period-predicted: #FFB3BC;
+  --color-period: #F06292;
+  --color-period-predicted: #F8BBD0;
   --color-fertile: #54A0FF;
   --color-fertile-predicted: #B3D4FF;
   --color-ovulation: #FF6B35;
   --color-ovulation-predicted: #FFD0BC;
   --color-intimate-bg: #FFF0F5;
   --color-today-ring: #E91E8C;
-  --color-text: #2D2D2D;
-  --color-text-light: #888;
-  --color-bg: #FAFAFA;
+  --color-text: #1C1C1E;
+  --color-text-light: #AEAEB2;
+  --color-bg: #F2F2F7;
   --color-cell-bg: #FFFFFF;
-  --color-border: #F0F0F0;
+  --color-border: #E5E5EA;
   --header-height: 60px;
-  --info-height: 48px;
-  --weekday-height: 32px;
-  --legend-height: 52px;
+  --info-height: 44px;
+  --weekday-height: 30px;
+  --legend-height: 48px;
 }
 
 * {
@@ -51,7 +51,8 @@ html, body {
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  border-bottom: 1px solid #EBEBEB;
+  border-bottom: none;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.07);
   padding: 0 8px;
   height: var(--header-height);
   padding-top: env(safe-area-inset-top);
@@ -59,10 +60,10 @@ html, body {
 }
 
 .month-title {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
-  color: #1A1A1A;
-  letter-spacing: -0.3px;
+  color: #1C1C1E;
+  letter-spacing: -0.5px;
   background: none;
   border: none;
   cursor: pointer;
@@ -199,7 +200,7 @@ html, body {
 /* ── Cycle Info Bar ── */
 #cycleInfoBar {
   background: #fff;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: none;
   height: var(--info-height);
   display: flex;
   align-items: center;
@@ -209,10 +210,11 @@ html, body {
 }
 
 .cycle-status {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-primary);
   text-align: center;
+  letter-spacing: -0.1px;
 }
 
 /* ── Week Day Labels ── */
@@ -220,7 +222,7 @@ html, body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   height: var(--weekday-height);
-  background: #fff;
+  background: var(--color-bg);
   flex-shrink: 0;
 }
 
@@ -228,13 +230,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-text-light);
-  text-transform: uppercase;
+  letter-spacing: 0.2px;
 }
-#weekDays span:first-child { color: #FF4757; }
-#weekDays span:last-child  { color: #54A0FF; }
+#weekDays span:first-child { color: #FF6B6B; }
+#weekDays span:last-child  { color: #74B9FF; }
 
 /* ── Calendar Grid ── */
 #calendarContainer {
@@ -250,7 +252,8 @@ html, body {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-auto-rows: 1fr;
-  gap: 1px;
+  row-gap: 1px;
+  column-gap: 0;
   background: var(--color-border);
 }
 
@@ -260,22 +263,22 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 3px 4px;
+  padding: 6px 2px 5px;
   cursor: pointer;
   position: relative;
   transition: opacity 0.1s;
   min-height: 0;
 }
 .calendar-cell:active { opacity: 0.7; }
-.calendar-cell.empty { background: #F8F8F8; cursor: default; pointer-events: none; }
+.calendar-cell.empty { background: var(--color-bg); cursor: default; pointer-events: none; }
 
 .day-number {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--color-text);
   line-height: 1;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,19 +286,20 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Today ring */
+/* Today — 채워진 원 */
 .calendar-cell.today .day-number {
-  background: transparent;
-  color: var(--color-primary);
-  border: 2px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  font-weight: 700;
 }
 
 /* Sunday column (1st) */
-.calendar-cell:nth-child(7n+1) .day-number { color: #FF4757; }
+.calendar-cell:nth-child(7n+1) .day-number { color: #FF6B6B; }
 .calendar-cell:nth-child(7n+1).today .day-number { color: #fff; }
 
 /* Saturday column (7th) */
-.calendar-cell:nth-child(7n) .day-number { color: #54A0FF; }
+.calendar-cell:nth-child(7n) .day-number { color: #74B9FF; }
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
 /* Period pill — 셀 상단에 #F06292 pill 밴드 */
@@ -337,9 +341,10 @@ html, body {
   color: #fff;
 }
 .calendar-cell.period.today .day-number {
-  background: transparent;
+  background: rgba(255,255,255,0.25);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.8);
+  border: 2px solid rgba(255,255,255,0.85);
+  font-weight: 700;
 }
 .calendar-cell.period .indicators {
   position: relative;
@@ -352,18 +357,18 @@ html, body {
 }
 .calendar-cell.period-predicted .day-number {
   background: transparent;
-  color: #c0334a;
+  color: #AD1457;
 }
 
 /* ── Fertile window: dotted connecting line (셀 하단 고정) ── */
 
-/* 공통 선 — 날짜 숫자(32px) + 상단 패딩(5px) = 37px 바로 아래 */
+/* 공통 선 — 날짜 숫자(28px) + 상단 패딩(6px) = 34px 바로 아래 */
 .calendar-cell.fertile-line::before,
 .calendar-cell.fertile-line-predicted::before,
 .calendar-cell.fertile-line-high::before {
   content: '';
   position: absolute;
-  top: 37px;
+  top: 34px;
   left: 0;
   right: 0;
   height: 3px;
@@ -417,7 +422,7 @@ html, body {
 .calendar-cell.ovulation-dot-high::after {
   content: '';
   position: absolute;
-  top: 33px;        /* 37px - 4px = 원형 중심이 선(37px)에 맞춰짐 */
+  top: 30px;        /* 34px - 4px = 원형 중심이 선(34px)에 맞춰짐 */
   left: 50%;
   transform: translateX(-50%);
   width: 8px;
@@ -566,7 +571,8 @@ html, body {
   justify-content: space-around;
   height: var(--legend-height);
   background: #fff;
-  border-top: 1px solid var(--color-border);
+  border-top: none;
+  box-shadow: 0 -1px 0 rgba(0,0,0,0.06);
   padding: 0 8px;
   padding-bottom: env(safe-area-inset-bottom);
   flex-shrink: 0;
@@ -579,6 +585,7 @@ html, body {
   font-size: 11px;
   color: var(--color-text-light);
   font-weight: 500;
+  letter-spacing: 0.1px;
 }
 
 .legend-logo {
@@ -594,7 +601,12 @@ html, body {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dot.period    { background: var(--color-period); }
+.dot.period {
+  width: 18px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-period);
+}
 .dot.ovulation { background: var(--color-ovulation); }
 .dot.intimate  { background: var(--color-primary); }
 .dot.high-risk { background: #FF8C32; }
