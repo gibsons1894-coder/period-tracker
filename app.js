@@ -16,6 +16,7 @@ let currentYear, currentMonth;
 let selectedDate = null;
 let data = {};
 let _pushSubscription = null;
+let memoDebounceTimer = null;
 
 const STORAGE_KEY = 'periodTrackerData_v1';
 
@@ -578,6 +579,8 @@ function openDayModal(dateStr) {
 }
 
 function closeDayModal() {
+  clearTimeout(memoDebounceTimer);
+  saveMemo();
   document.getElementById('dayModal').classList.add('hidden');
   document.getElementById('iconPicker').classList.add('hidden');
   selectedDate = null;
@@ -683,13 +686,16 @@ function saveMemo() {
   const text = document.getElementById('memoInput').value.trim();
   if (text) {
     data.memos[selectedDate] = text;
-    showToast('메모가 저장되었어요 📝');
   } else {
     delete data.memos[selectedDate];
-    showToast('메모가 삭제되었어요');
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
+}
+
+function autoSaveMemo() {
+  clearTimeout(memoDebounceTimer);
+  memoDebounceTimer = setTimeout(saveMemo, 600);
 }
 
 // ── Stats modal ────────────────────────────────────────
@@ -808,8 +814,6 @@ function saveSettings() {
   updateCycleInfoBar();
   updateLegend();
   updatePushServer();
-  closeSettings();
-  showToast('설정이 저장되었어요');
 }
 
 function renderCycleList() {
@@ -1255,10 +1259,15 @@ function init() {
   document.getElementById('togglePeriodEnd').addEventListener('click', togglePeriodEnd);
   document.getElementById('toggleIntimate').addEventListener('click', toggleIntimate);
   document.getElementById('editIntimateIcon').addEventListener('click', openIconPicker);
-  document.getElementById('saveMemo').addEventListener('click', saveMemo);
+  document.getElementById('memoInput').addEventListener('input', autoSaveMemo);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
-  document.getElementById('saveSettings').addEventListener('click', saveSettings);
+  ['cycleLength', 'periodLength', 'notifyDaysBefore', 'notifyTime'].forEach(id => {
+    document.getElementById(id).addEventListener('change', saveSettings);
+  });
+  document.querySelectorAll('input[name="fertileMethod"]').forEach(r => {
+    r.addEventListener('change', saveSettings);
+  });
   document.getElementById('enableNotifications').addEventListener('click', requestNotificationPermission);
   document.getElementById('exportData').addEventListener('click', exportData);
   document.getElementById('importFile').addEventListener('change', e => {
