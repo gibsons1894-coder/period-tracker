@@ -463,6 +463,12 @@ function renderCalendar(year, month) {
 
     if (actualPeriod.has(dateStr)) {
       classes.push('period');
+      const dow = fromDateStr(dateStr).getDay();
+      const isStart = !actualPeriod.has(addDays(dateStr, -1)) || dow === 0;
+      const isEnd   = !actualPeriod.has(addDays(dateStr, 1))  || dow === 6;
+      if (isStart) classes.push('period-start');
+      if (isEnd)   classes.push('period-end');
+      if (!isStart && !isEnd) classes.push('period-middle');
     } else if (predictedPeriod.has(dateStr)) {
       classes.push('period-predicted');
     } else if (isCombined && fertileCombined.has(dateStr)) {

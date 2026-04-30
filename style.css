@@ -138,7 +138,7 @@ html, body {
 .picker-month-btn {
   background: #F9F9F9;
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 10px 4px;
   font-size: 14px;
   font-weight: 500;
@@ -298,17 +298,52 @@ html, body {
 .calendar-cell:nth-child(7n) .day-number { color: #54A0FF; }
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
-/* Period — 셀 배경 전체를 빨간색으로 */
+/* Period pill — 셀 상단에 #F06292 pill 밴드 */
 .calendar-cell.period {
-  background: var(--color-period);
+  background: var(--color-cell-bg);
+}
+.calendar-cell.period-start::before,
+.calendar-cell.period-middle::before,
+.calendar-cell.period-end::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -1px;
+  right: -1px;
+  height: calc(50% - 10px);
+  background: #F06292;
+  z-index: 0;
+}
+.calendar-cell.period-start::before {
+  left: 4px;
+  border-radius: 16px 0 0 16px;
+}
+.calendar-cell.period-end::before {
+  right: 4px;
+  border-radius: 0 16px 16px 0;
+}
+.calendar-cell.period-start.period-end::before {
+  left: 4px;
+  right: 4px;
+  border-radius: 16px;
 }
 .calendar-cell.period .day-number {
-  background: transparent;
+  position: relative;
+  z-index: 1;
   color: #fff;
 }
 .calendar-cell.period:nth-child(7n+1) .day-number,
 .calendar-cell.period:nth-child(7n) .day-number {
   color: #fff;
+}
+.calendar-cell.period.today .day-number {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.8);
+}
+.calendar-cell.period .indicators {
+  position: relative;
+  z-index: 1;
 }
 
 /* Period predicted — 셀 배경을 연한 핑크로 */
@@ -318,13 +353,6 @@ html, body {
 .calendar-cell.period-predicted .day-number {
   background: transparent;
   color: #c0334a;
-}
-
-/* 오늘이 생리일이면 셀 배경은 생리 색, 링은 흰색 */
-.calendar-cell.period.today .day-number {
-  background: transparent;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.8);
 }
 
 /* ── Fertile window: dotted connecting line (셀 하단 고정) ── */
@@ -432,9 +460,9 @@ html, body {
   word-break: break-all;
 }
 
-/* 생리일(빨간 배경)에서 메모 텍스트 색상 */
+/* 생리일 하단은 흰 배경이므로 메모 텍스트 일반 색상 */
 .calendar-cell.period .memo-preview {
-  color: rgba(255, 255, 255, 0.8);
+  color: #333;
 }
 
 /* 예정일(연핑크 배경)에서 메모 텍스트 색상 */
@@ -510,7 +538,7 @@ html, body {
   font-size: 22px;
   background: none;
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: 16px;
   cursor: pointer;
   padding: 5px;
   line-height: 1;
@@ -661,7 +689,7 @@ html, body {
   border-collapse: collapse;
   font-size: 13px;
   margin-bottom: 14px;
-  border-radius: 10px;
+  border-radius: 16px;
   overflow: hidden;
 }
 
@@ -1043,7 +1071,7 @@ html, body {
   color: #999;
   padding: 10px 14px;
   background: #F8F8F8;
-  border-radius: 10px;
+  border-radius: 16px;
   margin-bottom: 8px;
 }
 
@@ -1237,7 +1265,7 @@ html, body {
 .install-guide-warning {
   background: #FFF8E1;
   border: 1px solid #FFD54F;
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 10px 14px;
   font-size: 13px;
   color: #6D4C00;
@@ -1276,7 +1304,7 @@ html, body {
 .install-guide-tip {
   background: #F0FAF0;
   border: 1px solid #A5D6A7;
-  border-radius: 10px;
+  border-radius: 16px;
   padding: 10px 14px;
   font-size: 13px;
   color: #2E7D32;
