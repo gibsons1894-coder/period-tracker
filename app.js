@@ -840,10 +840,10 @@ function renderActivityStats(period) {
       key = dateStr.slice(0, 7);
     } else {
       const d = fromDateStr(dateStr);
-      const dow = d.getDay();
-      const mon = new Date(d);
-      mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-      key = toDateStr(mon);
+      const dow = d.getDay(); // 0=일, 6=토
+      const weekSun = new Date(d);
+      weekSun.setDate(d.getDate() - dow); // 해당 주 일요일
+      key = toDateStr(weekSun);
     }
     if (!groups[key]) groups[key] = { intimateCount: 0, exercise: 0, game: 0 };
     if (intimateDates.includes(dateStr)) groups[key].intimateCount += intimateCounts[dateStr] || 1;
@@ -861,10 +861,10 @@ function renderActivityStats(period) {
       const [y, m] = key.split('-');
       label = `${y}년 ${parseInt(m)}월`;
     } else {
-      const mon = fromDateStr(key);
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
-      label = `${mon.getMonth()+1}/${mon.getDate()} ~ ${sun.getMonth()+1}/${sun.getDate()}`;
+      const sun = fromDateStr(key); // 일요일
+      const sat = new Date(sun);
+      sat.setDate(sun.getDate() + 6); // 토요일
+      label = `${sun.getMonth()+1}/${sun.getDate()} ~ ${sat.getMonth()+1}/${sat.getDate()}`;
     }
     const badges = [
       g.intimateCount > 0 ? `<span class="act-badge intimate-badge">${icon} ${g.intimateCount}번</span>` : '',

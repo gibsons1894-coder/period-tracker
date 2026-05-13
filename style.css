@@ -1096,7 +1096,7 @@ html, body {
 .section-title {
   font-size: 11px;
   font-weight: 700;
-  color: #bbb;
+  color: #999;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 24px 0 12px;
@@ -1149,7 +1149,7 @@ html, body {
 
 .stats-card-label {
   font-size: 11px;
-  color: #bbb;
+  color: #888;
   font-weight: 600;
   letter-spacing: 0.4px;
 }
@@ -1165,13 +1165,13 @@ html, body {
 .stats-card-unit {
   font-size: 14px;
   font-weight: 600;
-  color: #ddd;
+  color: #aaa;
   letter-spacing: -0.3px;
 }
 
 .stats-card-sub {
   font-size: 11px;
-  color: #ccc;
+  color: #999;
   font-weight: 500;
 }
 
@@ -1225,13 +1225,13 @@ html, body {
 }
 
 .cycle-length-badge.current {
-  color: #ccc;
+  color: #aaa;
   background: #f8f8f8;
 }
 
 .cycle-item-info {
   font-size: 12px;
-  color: #ccc;
+  color: #999;
   margin-top: 5px;
 }
 
