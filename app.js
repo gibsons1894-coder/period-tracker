@@ -163,6 +163,9 @@ function defaultData() {
     cycles: [],           // [{startDate: 'YYYY-MM-DD', endDate?: 'YYYY-MM-DD'}]
     intimateIcon: '💟',
     intimateDates: [],    // ['YYYY-MM-DD']
+    intimateCounts: {},   // {'YYYY-MM-DD': number}
+    exerciseDates: [],    // ['YYYY-MM-DD']
+    gameDates: [],        // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
     notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
   };
@@ -419,6 +422,8 @@ function renderCalendar(year, month) {
   const actualPeriod = getActualPeriodDays();
   const predictedPeriod = getPredictedPeriodDays();
   const intimate = new Set(data.intimateDates);
+  const exercise = new Set(data.exerciseDates || []);
+  const game = new Set(data.gameDates || []);
 
   const isCombined = (data.fertileMethod || 'standard') === 'combined';
   let fertileAll, fertileAllPredicted, ovulation, predictedOvulation;
@@ -502,12 +507,21 @@ function renderCalendar(year, month) {
     const ind = document.createElement('div');
     ind.className = 'indicators';
 
-    if (intimate.has(dateStr)) {
-      const icon = data.intimateIcon || '💟';
-      const h = document.createElement('span');
-      h.className = 'indicator-heart' + (RED_HEARTS.has(icon) ? ' indicator-heart-bg' : '');
-      h.textContent = icon;
-      cell.appendChild(h);
+    const activityList = [];
+    if (intimate.has(dateStr)) activityList.push({ icon: data.intimateIcon || '💟', redBg: RED_HEARTS.has(data.intimateIcon || '💟') });
+    if (exercise.has(dateStr)) activityList.push({ icon: '🏃', redBg: false });
+    if (game.has(dateStr))     activityList.push({ icon: '🎮', redBg: false });
+
+    if (activityList.length > 0) {
+      const wrap = document.createElement('div');
+      wrap.className = activityList.length === 1 ? 'activity-icons single' : 'activity-icons multi';
+      activityList.forEach(({ icon, redBg }) => {
+        const s = document.createElement('span');
+        s.textContent = icon;
+        if (redBg) s.className = 'indicator-heart-bg';
+        wrap.appendChild(s);
+      });
+      cell.appendChild(wrap);
     }
 
     if (data.memos[dateStr]) {
@@ -576,7 +590,30 @@ function openDayModal(dateStr) {
   const intimateIcon = data.intimateIcon || '💟';
   intimateBtn.textContent = isIntimate ? `${intimateIcon} 사랑한 날 해제` : `${intimateIcon} 사랑한 날 기록`;
   intimateBtn.classList.toggle('active', isIntimate);
+  if (isIntimate) {
+    if (!data.intimateCounts) data.intimateCounts = {};
+    const cnt = data.intimateCounts[dateStr] || 1;
+    data.intimateCounts[dateStr] = cnt;
+    intimateBtn.textContent = `${intimateIcon} 사랑한 날 해제 · ${cnt}번`;
+    document.getElementById('intimateDecBtn').classList.remove('hidden');
+    document.getElementById('intimateIncBtn').classList.remove('hidden');
+  } else {
+    document.getElementById('intimateDecBtn').classList.add('hidden');
+    document.getElementById('intimateIncBtn').classList.add('hidden');
+  }
   document.getElementById('iconPicker').classList.add('hidden');
+
+  // Exercise button state
+  const isExercise = (data.exerciseDates || []).includes(dateStr);
+  const exerciseBtn = document.getElementById('toggleExercise');
+  exerciseBtn.textContent = isExercise ? '🏃 운동 해제' : '🏃 운동 기록';
+  exerciseBtn.classList.toggle('active', isExercise);
+
+  // Game button state
+  const isGame = (data.gameDates || []).includes(dateStr);
+  const gameBtn = document.getElementById('toggleGame');
+  gameBtn.textContent = isGame ? '🎮 게임 해제' : '🎮 게임 기록';
+  gameBtn.classList.toggle('active', isGame);
 
   // Memo
   document.getElementById('memoInput').value = data.memos[dateStr] || '';
@@ -677,10 +714,57 @@ function toggleIntimate() {
   const idx = data.intimateDates.indexOf(selectedDate);
   if (idx >= 0) {
     data.intimateDates.splice(idx, 1);
+    if (!data.intimateCounts) data.intimateCounts = {};
+    delete data.intimateCounts[selectedDate];
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
+    if (!data.intimateCounts) data.intimateCounts = {};
+    data.intimateCounts[selectedDate] = 1;
     showToast(`사랑한 날이 기록되었어요 ${data.intimateIcon || '💟'}`);
+  }
+  saveData();
+  renderCalendar(currentYear, currentMonth);
+  openDayModal(selectedDate);
+}
+
+function changeIntimateCount(delta) {
+  if (!selectedDate) return;
+  if (!data.intimateCounts) data.intimateCounts = {};
+  const current = data.intimateCounts[selectedDate] || 1;
+  const next = Math.max(1, current + delta);
+  data.intimateCounts[selectedDate] = next;
+  const icon = data.intimateIcon || '💟';
+  document.getElementById('toggleIntimate').textContent = `${icon} 사랑한 날 해제 · ${next}번`;
+  saveData();
+}
+
+function toggleExercise() {
+  if (!selectedDate) return;
+  if (!data.exerciseDates) data.exerciseDates = [];
+  const idx = data.exerciseDates.indexOf(selectedDate);
+  if (idx >= 0) {
+    data.exerciseDates.splice(idx, 1);
+    showToast('운동 기록이 해제되었어요');
+  } else {
+    data.exerciseDates.push(selectedDate);
+    showToast('운동이 기록되었어요 🏃');
+  }
+  saveData();
+  renderCalendar(currentYear, currentMonth);
+  openDayModal(selectedDate);
+}
+
+function toggleGame() {
+  if (!selectedDate) return;
+  if (!data.gameDates) data.gameDates = [];
+  const idx = data.gameDates.indexOf(selectedDate);
+  if (idx >= 0) {
+    data.gameDates.splice(idx, 1);
+    showToast('게임 기록이 해제되었어요');
+  } else {
+    data.gameDates.push(selectedDate);
+    showToast('게임이 기록되었어요 🎮');
   }
   saveData();
   renderCalendar(currentYear, currentMonth);
@@ -705,13 +789,96 @@ function autoSaveMemo() {
 }
 
 // ── Stats modal ────────────────────────────────────────
+let activityTabMode = 'monthly';
+let showingActivityStats = false;
+
 function openStats() {
+  showingActivityStats = false;
   renderStatsModal();
   document.getElementById('statsModal').classList.remove('hidden');
+  document.getElementById('mainStatsSection').classList.remove('hidden');
+  document.getElementById('activityStatsSection').classList.add('hidden');
+  document.getElementById('activityStatsBtn').textContent = '더보기';
 }
 
 function closeStats() {
   document.getElementById('statsModal').classList.add('hidden');
+}
+
+function toggleActivityStats() {
+  showingActivityStats = !showingActivityStats;
+  document.getElementById('mainStatsSection').classList.toggle('hidden', showingActivityStats);
+  document.getElementById('activityStatsSection').classList.toggle('hidden', !showingActivityStats);
+  document.getElementById('activityStatsBtn').textContent = showingActivityStats ? '접기' : '더보기';
+  if (showingActivityStats) renderActivityStats(activityTabMode);
+}
+
+function switchActivityTab(tab) {
+  activityTabMode = tab;
+  document.getElementById('tabMonthly').classList.toggle('active', tab === 'monthly');
+  document.getElementById('tabWeekly').classList.toggle('active', tab === 'weekly');
+  renderActivityStats(tab);
+}
+
+function renderActivityStats(period) {
+  const content = document.getElementById('activityStatsContent');
+  const intimateDates = data.intimateDates || [];
+  const intimateCounts = data.intimateCounts || {};
+  const exerciseDates = data.exerciseDates || [];
+  const gameDates = data.gameDates || [];
+
+  const allDates = new Set([...intimateDates, ...exerciseDates, ...gameDates]);
+  if (allDates.size === 0) {
+    content.innerHTML = '<div class="no-data-hint">활동 기록이 없어요.</div>';
+    return;
+  }
+
+  const groups = {};
+  allDates.forEach(dateStr => {
+    let key;
+    if (period === 'monthly') {
+      key = dateStr.slice(0, 7);
+    } else {
+      const d = fromDateStr(dateStr);
+      const dow = d.getDay();
+      const mon = new Date(d);
+      mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      key = toDateStr(mon);
+    }
+    if (!groups[key]) groups[key] = { intimateCount: 0, exercise: 0, game: 0 };
+    if (intimateDates.includes(dateStr)) groups[key].intimateCount += intimateCounts[dateStr] || 1;
+    if (exerciseDates.includes(dateStr)) groups[key].exercise++;
+    if (gameDates.includes(dateStr)) groups[key].game++;
+  });
+
+  const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+  const icon = data.intimateIcon || '💟';
+
+  const rows = sortedKeys.map(key => {
+    const g = groups[key];
+    let label;
+    if (period === 'monthly') {
+      const [y, m] = key.split('-');
+      label = `${y}년 ${parseInt(m)}월`;
+    } else {
+      const mon = fromDateStr(key);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      label = `${mon.getMonth()+1}/${mon.getDate()} ~ ${sun.getMonth()+1}/${sun.getDate()}`;
+    }
+    const badges = [
+      g.intimateCount > 0 ? `<span class="act-badge intimate-badge">${icon} ${g.intimateCount}번</span>` : '',
+      g.exercise > 0      ? `<span class="act-badge exercise-badge">🏃 ${g.exercise}일</span>` : '',
+      g.game > 0          ? `<span class="act-badge game-badge">🎮 ${g.game}일</span>` : '',
+    ].filter(Boolean).join('');
+    return `
+      <div class="activity-stat-row">
+        <div class="activity-stat-period">${label}</div>
+        <div class="activity-stat-counts">${badges || '<span class="no-activity">-</span>'}</div>
+      </div>`;
+  }).join('');
+
+  content.innerHTML = rows;
 }
 
 function renderStatsModal() {
@@ -780,7 +947,7 @@ function renderSummaryCards() {
     <div class="stats-card">
       <div class="stats-card-label">${c.label}</div>
       <div class="stats-card-value">${c.value}<span class="stats-card-unit"> ${c.unit}</span></div>
-      <div class="stats-card-label">${c.sub}</div>
+      <div class="stats-card-sub">${c.sub}</div>
     </div>
   `).join('');
 }
@@ -1265,6 +1432,8 @@ function init() {
   document.getElementById('togglePeriodEnd').addEventListener('click', togglePeriodEnd);
   document.getElementById('toggleIntimate').addEventListener('click', toggleIntimate);
   document.getElementById('editIntimateIcon').addEventListener('click', openIconPicker);
+  document.getElementById('toggleExercise').addEventListener('click', toggleExercise);
+  document.getElementById('toggleGame').addEventListener('click', toggleGame);
   document.getElementById('memoInput').addEventListener('input', autoSaveMemo);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
@@ -1292,6 +1461,7 @@ function init() {
     if (e.target === this) closeStats();
   });
   document.getElementById('closeStats').addEventListener('click', closeStats);
+  document.getElementById('activityStatsBtn').addEventListener('click', toggleActivityStats);
   document.getElementById('closeFertileInfo').addEventListener('click', closeFertileInfo);
   document.getElementById('fertileInfoModal').addEventListener('click', function(e) {
     if (e.target === this) closeFertileInfo();

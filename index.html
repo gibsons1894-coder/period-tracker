@@ -76,9 +76,15 @@
         <button id="togglePeriodEnd" class="action-btn period-end-btn hidden">🩸 생리 종료일로 설정</button>
         <div class="intimate-row">
           <button id="toggleIntimate" class="action-btn intimate-btn" style="flex:1">💟 사랑한 날 기록</button>
+          <button id="intimateDecBtn" class="count-adj-btn hidden" onclick="changeIntimateCount(-1)">−</button>
+          <button id="intimateIncBtn" class="count-adj-btn hidden" onclick="changeIntimateCount(1)">+</button>
           <button id="editIntimateIcon" class="edit-icon-btn" aria-label="아이콘 변경">✏️</button>
         </div>
         <div id="iconPicker" class="icon-picker hidden"></div>
+        <div class="activity-row">
+          <button id="toggleExercise" class="action-btn activity-btn exercise-btn">🏃 운동 기록</button>
+          <button id="toggleGame" class="action-btn activity-btn game-btn">🎮 게임 기록</button>
+        </div>
       </div>
       <div class="memo-section">
         <label for="memoInput">메모</label>
@@ -92,13 +98,25 @@
 <div id="statsModal" class="modal hidden" role="dialog" aria-modal="true">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>통계</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <h2>통계</h2>
+        <button id="activityStatsBtn" class="more-stats-btn">더보기</button>
+      </div>
       <button id="closeStats" class="close-btn" aria-label="닫기">✕</button>
     </div>
     <div class="modal-body">
-      <div id="statsSummaryCards" class="stats-summary-cards"></div>
-      <div class="section-title" style="margin-top:8px">주기 기록</div>
-      <div id="statsCycleList" class="cycle-list"></div>
+      <div id="mainStatsSection">
+        <div id="statsSummaryCards" class="stats-summary-cards"></div>
+        <div class="section-title" style="margin-top:8px">주기 기록</div>
+        <div id="statsCycleList" class="cycle-list"></div>
+      </div>
+      <div id="activityStatsSection" class="hidden">
+        <div class="activity-stats-tabs">
+          <button id="tabMonthly" class="stats-tab active" onclick="switchActivityTab('monthly')">월별</button>
+          <button id="tabWeekly" class="stats-tab" onclick="switchActivityTab('weekly')">주별</button>
+        </div>
+        <div id="activityStatsContent"></div>
+      </div>
     </div>
   </div>
 </div>
