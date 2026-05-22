@@ -452,6 +452,12 @@ function renderCalendar(year, month) {
 
   const grid = document.getElementById('calendar');
   grid.innerHTML = '';
+  if (_slideDir !== 0) {
+    const cls = _slideDir > 0 ? 'slide-right' : 'slide-left';
+    grid.classList.add(cls);
+    grid.addEventListener('animationend', () => grid.classList.remove(cls), { once: true });
+    _slideDir = 0;
+  }
 
   for (let i = 0; i < firstDow; i++) {
     const blank = document.createElement('div');
@@ -621,12 +627,26 @@ function openDayModal(dateStr) {
   document.getElementById('dayModal').classList.remove('hidden');
 }
 
+function _closeModal(id, callback) {
+  const modal = document.getElementById(id);
+  const content = modal.querySelector('.modal-content');
+  modal.classList.add('closing');
+  content.classList.add('closing');
+  setTimeout(() => {
+    modal.classList.remove('closing');
+    content.classList.remove('closing');
+    modal.classList.add('hidden');
+    if (callback) callback();
+  }, 220);
+}
+
 function closeDayModal() {
   clearTimeout(memoDebounceTimer);
   saveMemo();
-  document.getElementById('dayModal').classList.add('hidden');
-  document.getElementById('iconPicker').classList.add('hidden');
-  selectedDate = null;
+  _closeModal('dayModal', () => {
+    document.getElementById('iconPicker').classList.add('hidden');
+    selectedDate = null;
+  });
 }
 
 function openIconPicker() {
@@ -802,7 +822,7 @@ function openStats() {
 }
 
 function closeStats() {
-  document.getElementById('statsModal').classList.add('hidden');
+  _closeModal('statsModal');
 }
 
 function toggleActivityStats() {
@@ -818,6 +838,187 @@ function switchActivityTab(tab) {
   document.getElementById('tabMonthly').classList.toggle('active', tab === 'monthly');
   document.getElementById('tabWeekly').classList.toggle('active', tab === 'weekly');
   renderActivityStats(tab);
+}
+
+let _acs = null; // activity chart state
+
+function buildActivitySVGChart(chartKeys, groups, period, icon) {
+  const W = 300, H = 96;
+  const padL = 6, padR = 6, padT = 10, padB = 22;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const n = chartKeys.length;
+
+  const iVals = chartKeys.map(k => groups[k].intimateCount);
+  const eVals = chartKeys.map(k => groups[k].exercise);
+  const gVals = chartKeys.map(k => groups[k].game);
+  const maxVal = Math.max(...iVals, ...eVals, ...gVals, 1);
+
+  const xp = i => padL + (n < 2 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const yp = v => padT + innerH - (v / maxVal) * innerH;
+
+  _acs = { n, chartKeys, groups, period, iVals, eVals, gVals, xp, yp, padL, padT, innerW, innerH, W, H };
+
+  function curve(vals) {
+    const pts = vals.map((v, i) => [xp(i), yp(v)]);
+    if (pts.length < 2) return `M ${pts[0][0]},${pts[0][1]}`;
+    let d = `M ${pts[0][0]},${pts[0][1]}`;
+    for (let i = 1; i < pts.length; i++) {
+      const cx = (pts[i-1][0] + pts[i][0]) / 2;
+      d += ` C ${cx},${pts[i-1][1]} ${cx},${pts[i][1]} ${pts[i][0]},${pts[i][1]}`;
+    }
+    return d;
+  }
+
+  function area(vals) {
+    const pts = vals.map((v, i) => [xp(i), yp(v)]);
+    const bot = padT + innerH;
+    if (pts.length < 2) return '';
+    let d = `M ${pts[0][0]},${bot} L ${pts[0][0]},${pts[0][1]}`;
+    for (let i = 1; i < pts.length; i++) {
+      const cx = (pts[i-1][0] + pts[i][0]) / 2;
+      d += ` C ${cx},${pts[i-1][1]} ${cx},${pts[i][1]} ${pts[i][0]},${pts[i][1]}`;
+    }
+    d += ` L ${pts[pts.length-1][0]},${bot} Z`;
+    return d;
+  }
+
+  const showIdx = new Set();
+  if (n <= 5) chartKeys.forEach((_, i) => showIdx.add(i));
+  else { showIdx.add(0); showIdx.add(Math.round((n-1)/2)); showIdx.add(n-1); }
+
+  const labels = chartKeys.map((key, i) => {
+    if (!showIdx.has(i)) return '';
+    const lbl = period === 'monthly'
+      ? `${parseInt(key.slice(5))}월`
+      : `${fromDateStr(key).getMonth()+1}/${fromDateStr(key).getDate()}`;
+    return `<text x="${xp(i).toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="7" fill="#d0d0d0" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="600">${lbl}</text>`;
+  }).join('');
+
+  const TW = 82, TH = 64, TR = 8;
+  const svg = `<svg id="act-chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;cursor:crosshair">
+    <defs>
+      <linearGradient id="gI" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="#E91E8C" stop-opacity="0.01"/>
+      </linearGradient>
+      <linearGradient id="gE" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#27ae60" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#27ae60" stop-opacity="0.01"/>
+      </linearGradient>
+      <linearGradient id="gG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#5c6bc0" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#5c6bc0" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    <path d="${area(iVals)}" fill="url(#gI)"/>
+    <path d="${area(eVals)}" fill="url(#gE)"/>
+    <path d="${area(gVals)}" fill="url(#gG)"/>
+    <path d="${curve(iVals)}" fill="none" stroke="#E91E8C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <path d="${curve(eVals)}" fill="none" stroke="#27ae60" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <path d="${curve(gVals)}" fill="none" stroke="#5c6bc0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    ${labels}
+    <line id="act-vl" x1="0" y1="${padT}" x2="0" y2="${padT+innerH}" stroke="#ccc" stroke-width="0.8" stroke-dasharray="2,2" display="none"/>
+    <circle id="act-di" r="3" fill="#E91E8C" stroke="#fff" stroke-width="1.5" display="none"/>
+    <circle id="act-de" r="3" fill="#27ae60" stroke="#fff" stroke-width="1.5" display="none"/>
+    <circle id="act-dg" r="3" fill="#5c6bc0" stroke="#fff" stroke-width="1.5" display="none"/>
+    <g id="act-tt" display="none">
+      <rect id="act-tb" width="${TW}" height="${TH}" rx="${TR}" ry="${TR}" fill="rgba(22,22,28,0.88)"/>
+      <text id="act-td" font-size="8" fill="rgba(255,255,255,0.6)" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700"/>
+      <text id="act-ti" font-size="8.5" fill="#F48FB1" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="600"/>
+      <text id="act-te" font-size="8.5" fill="#66bb6a" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="600"/>
+      <text id="act-tg" font-size="8.5" fill="#7986cb" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="600"/>
+    </g>
+    <rect id="act-ol" x="${padL}" y="${padT}" width="${innerW}" height="${innerH}" fill="transparent"/>
+  </svg>`;
+
+  return `<div class="activity-chart-card">
+    ${svg}
+    <div class="chart-legend-row">
+      <span class="chart-legend-item"><span class="chart-legend-dot dot-intimate"></span>${icon} 사랑</span>
+      <span class="chart-legend-item"><span class="chart-legend-dot dot-exercise"></span>🏃 운동</span>
+      <span class="chart-legend-item"><span class="chart-legend-dot dot-game"></span>🎮 게임</span>
+    </div>
+  </div>`;
+}
+
+function _actSvgX(clientX) {
+  const svg = document.getElementById('act-chart');
+  if (!svg || !_acs) return null;
+  const r = svg.getBoundingClientRect();
+  return (clientX - r.left) / r.width * _acs.W;
+}
+
+function _actUpdate(svgX) {
+  if (!_acs) return;
+  const { n, xp, yp, iVals, eVals, gVals, chartKeys, period, padL, padT, innerW, innerH, W } = _acs;
+  const idx = Math.max(0, Math.min(n - 1, Math.round((svgX - padL) / innerW * (n - 1))));
+  const cx = xp(idx);
+
+  const vl = document.getElementById('act-vl');
+  vl.setAttribute('x1', cx); vl.setAttribute('x2', cx);
+  vl.removeAttribute('display');
+
+  [['act-di', iVals], ['act-de', eVals], ['act-dg', gVals]].forEach(([id, vals]) => {
+    const el = document.getElementById(id);
+    if (vals[idx] > 0) {
+      el.setAttribute('cx', cx); el.setAttribute('cy', yp(vals[idx]));
+      el.removeAttribute('display');
+    } else {
+      el.setAttribute('display', 'none');
+    }
+  });
+
+  const key = chartKeys[idx];
+  let dateLabel;
+  if (period === 'monthly') {
+    const [y, m] = key.split('-');
+    dateLabel = `${y}년 ${parseInt(m)}월`;
+  } else {
+    const sun = fromDateStr(key), sat = new Date(sun);
+    sat.setDate(sun.getDate() + 6);
+    dateLabel = `${sun.getMonth()+1}/${sun.getDate()} ~ ${sat.getMonth()+1}/${sat.getDate()}`;
+  }
+
+  const TW = 82, TH = 64, PAD = 9;
+  const tx = (cx + 12 + TW > W - 4) ? cx - TW - 12 : cx + 12;
+  const ty = padT + 2;
+
+  const tt = document.getElementById('act-tt');
+  tt.setAttribute('transform', `translate(${tx.toFixed(1)},${ty})`);
+  tt.removeAttribute('display');
+
+  document.getElementById('act-td').setAttribute('x', PAD);
+  document.getElementById('act-td').setAttribute('y', 14);
+  document.getElementById('act-td').textContent = dateLabel;
+
+  const lines = [
+    ['act-ti', `사랑  ${iVals[idx]}번`],
+    ['act-te', `운동  ${eVals[idx]}일`],
+    ['act-tg', `게임  ${gVals[idx]}일`],
+  ];
+  lines.forEach(([id, text], li) => {
+    const el = document.getElementById(id);
+    el.setAttribute('x', PAD); el.setAttribute('y', 28 + li * 13);
+    el.textContent = text;
+  });
+}
+
+function _actClear() {
+  ['act-vl','act-di','act-de','act-dg','act-tt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('display', 'none');
+  });
+}
+
+function _attachActListeners() {
+  const ol = document.getElementById('act-ol');
+  if (!ol) return;
+  ol.addEventListener('mousemove', e => _actUpdate(_actSvgX(e.clientX)));
+  ol.addEventListener('mouseleave', _actClear);
+  ol.addEventListener('touchstart', e => { e.preventDefault(); _actUpdate(_actSvgX(e.touches[0].clientX)); }, { passive: false });
+  ol.addEventListener('touchmove',  e => { e.preventDefault(); _actUpdate(_actSvgX(e.touches[0].clientX)); }, { passive: false });
+  ol.addEventListener('touchend', _actClear);
 }
 
 function renderActivityStats(period) {
@@ -854,6 +1055,10 @@ function renderActivityStats(period) {
   const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
   const icon = data.intimateIcon || '💟';
 
+  // 차트: 오래된 순으로 최근 8개
+  const chartKeys = [...sortedKeys].reverse().slice(-8);
+  const chart = buildActivitySVGChart(chartKeys, groups, period, icon);
+
   const rows = sortedKeys.map(key => {
     const g = groups[key];
     let label;
@@ -861,9 +1066,9 @@ function renderActivityStats(period) {
       const [y, m] = key.split('-');
       label = `${y}년 ${parseInt(m)}월`;
     } else {
-      const sun = fromDateStr(key); // 일요일
+      const sun = fromDateStr(key);
       const sat = new Date(sun);
-      sat.setDate(sun.getDate() + 6); // 토요일
+      sat.setDate(sun.getDate() + 6);
       label = `${sun.getMonth()+1}/${sun.getDate()} ~ ${sat.getMonth()+1}/${sat.getDate()}`;
     }
     const badges = [
@@ -878,7 +1083,8 @@ function renderActivityStats(period) {
       </div>`;
   }).join('');
 
-  content.innerHTML = rows;
+  content.innerHTML = chart + rows;
+  _attachActListeners();
 }
 
 function renderStatsModal() {
@@ -966,7 +1172,7 @@ function openSettings() {
 }
 
 function closeSettings() {
-  document.getElementById('settingsModal').classList.add('hidden');
+  _closeModal('settingsModal');
 }
 
 function saveSettings() {
@@ -1292,7 +1498,7 @@ function openFertileInfo() {
 }
 
 function closeFertileInfo() {
-  document.getElementById('fertileInfoModal').classList.add('hidden');
+  _closeModal('fertileInfoModal');
 }
 
 // ── Install Guide (first launch) ───────────────────────
@@ -1327,15 +1533,19 @@ function updateLegend() {
 }
 
 // ── Navigation ─────────────────────────────────────────
+let _slideDir = 0;
+
 function prevMonth() {
   if (currentMonth === 0) { currentYear--; currentMonth = 11; }
   else currentMonth--;
+  _slideDir = 1;
   renderCalendar(currentYear, currentMonth);
 }
 
 function nextMonth() {
   if (currentMonth === 11) { currentYear++; currentMonth = 0; }
   else currentMonth++;
+  _slideDir = -1;
   renderCalendar(currentYear, currentMonth);
 }
 
@@ -1375,13 +1585,20 @@ function selectPickerMonth(month) {
 
 // Touch swipe for month navigation
 function initSwipe() {
-  let startX = 0;
+  let startX = 0, startY = 0;
   const cal = document.getElementById('calendarContainer');
 
-  cal.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+  cal.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
   cal.addEventListener('touchend', e => {
     const dx = e.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) > 60) dx < 0 ? nextMonth() : prevMonth();
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      dx < 0 ? nextMonth() : prevMonth();
+    }
   }, { passive: true });
 }
 

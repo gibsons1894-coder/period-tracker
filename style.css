@@ -515,12 +515,12 @@ html, body {
 .calendar-cell.period .activity-icons.single .indicator-heart-bg {
   background: rgba(255, 255, 255, 0.88);
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 13px;
 }
 .calendar-cell.period .activity-icons.multi .indicator-heart-bg {
   background: rgba(255, 255, 255, 0.7);
@@ -809,9 +809,10 @@ html, body {
   display: flex;
   align-items: flex-end;
   z-index: 1000;
-  transition: opacity 0.2s;
+  transition: background 0.22s;
 }
 .modal.hidden { display: none; }
+.modal.closing { background: rgba(0,0,0,0); pointer-events: none; }
 
 .modal-content {
   background: #fff;
@@ -822,11 +823,30 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom);
   animation: slideUp 0.25s ease;
 }
+.modal-content.closing {
+  animation: slideDown 0.22s ease forwards;
+}
 
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+/* ── Calendar month transition ── */
+@keyframes calSlideLeft {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes calSlideRight {
+  from { transform: translateX(-40px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+#calendar.slide-left  { animation: calSlideLeft  0.22s ease; }
+#calendar.slide-right { animation: calSlideRight 0.22s ease; }
 
 .modal-header {
   display: flex;
@@ -863,6 +883,7 @@ html, body {
 .close-btn:active { background: #E0E0E0; }
 
 .modal-body { padding: 16px 20px; }
+#settingsModal .modal-body { background: #F2F2F7; padding: 12px 16px 20px; }
 
 .modal-status {
   font-size: 14px;
@@ -872,10 +893,19 @@ html, body {
   font-weight: 500;
 }
 
+.modal-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-top: 6px;
+}
+
 .modal-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 20px;
 }
 
@@ -1251,7 +1281,17 @@ html, body {
 }
 
 .settings-group {
-  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 0 16px 4px;
+  margin-bottom: 12px;
+  border: 1px solid #f0f0f0;
+}
+.settings-group .section-title {
+  margin-top: 16px;
+}
+.settings-group .setting-item:last-child {
+  border-bottom: none;
 }
 
 .backup-btn {
@@ -1265,7 +1305,7 @@ html, body {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   text-align: center;
   transition: background 0.15s;
   font-family: inherit;
@@ -1289,7 +1329,8 @@ html, body {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  margin-top: 16px;
+  margin-top: 8px;
+  margin-bottom: 4px;
   transition: background 0.15s;
 }
 .enable-notif-btn:active { background: #FCE4EC; }
@@ -1335,6 +1376,44 @@ html, body {
   padding: 12px 0;
   line-height: 1.6;
 }
+
+
+/* ── Activity Chart ──────────────────────────────────── */
+.activity-chart-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 10px 10px 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.chart-legend-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding-top: 10px;
+  margin-top: 2px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #999;
+  font-weight: 600;
+}
+
+.chart-legend-dot {
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.dot-intimate { background: #E91E8C; }
+.dot-exercise { background: #27ae60; }
+.dot-game     { background: #5c6bc0; }
 
 /* ── Activity Stats ───────────────────────────────────── */
 .more-stats-btn {
