@@ -1881,20 +1881,21 @@ function selectPickerMonth(month) {
 
 // Touch swipe for month navigation
 function initSwipe() {
-  let startX = 0, startY = 0, _lpTimer = null;
+  let startX = 0, startY = 0, _lpTimer = null, _calLpFired = false;
   const cal = document.getElementById('calendarContainer');
 
   cal.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    _calLpFired = false;
     const cell = e.target.closest('.calendar-cell');
     const lpDate = cell ? cell.dataset.date : null;
     _lpTimer = setTimeout(() => {
       _lpTimer = null;
+      _calLpFired = true;
       _suppressClick = true;
       if (navigator.vibrate) navigator.vibrate(30);
       toggleDiaryMode(lpDate);
-      setTimeout(() => { _suppressClick = false; }, 400);
     }, 600);
   }, { passive: true });
 
@@ -1904,6 +1905,12 @@ function initSwipe() {
 
   cal.addEventListener('touchend', e => {
     clearTimeout(_lpTimer); _lpTimer = null;
+    if (_calLpFired) {
+      _calLpFired = false;
+      // touchend 기준 400ms 후 리셋 (synthetic click ~300ms 흡수)
+      setTimeout(() => { _suppressClick = false; }, 400);
+      return;
+    }
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -1921,11 +1928,16 @@ function initSwipe() {
       _suppressClick = true;
       if (navigator.vibrate) navigator.vibrate(30);
       toggleDiaryMode();
-      setTimeout(() => { _dLpFired = false; _suppressClick = false; }, 400);
     }, 600);
   }, { passive: true });
   diary.addEventListener('touchmove', () => { clearTimeout(_dLpTimer); _dLpTimer = null; }, { passive: true });
-  diary.addEventListener('touchend', () => { clearTimeout(_dLpTimer); _dLpTimer = null; }, { passive: true });
+  diary.addEventListener('touchend', () => {
+    clearTimeout(_dLpTimer); _dLpTimer = null;
+    if (_dLpFired) {
+      // touchend 기준 400ms 후 리셋 (synthetic click ~300ms 흡수)
+      setTimeout(() => { _dLpFired = false; _suppressClick = false; }, 400);
+    }
+  }, { passive: true });
 }
 
 // ── PWA install ────────────────────────────────────────
