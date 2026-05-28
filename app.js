@@ -134,7 +134,7 @@ const SYNC_TS_KEY   = 'syncLastModified';
 let isDiaryMode = false;
 let _suppressClick = false;
 const DAYS_KO = ['일', '월', '화', '수', '목', '금', '토'];
-let _dTY = 0, _dTScrolled = false;
+let _dTY = 0, _dTScrolled = false, _dLpFired = false;
 
 // ── Sync ───────────────────────────────────────────────
 let syncCode = localStorage.getItem(SYNC_CODE_KEY) || null;
@@ -651,6 +651,7 @@ function renderCalendar(year, month) {
 
     if (ind.children.length) cell.appendChild(ind);
 
+    cell.dataset.date = dateStr;
     cell.addEventListener('click', () => { if (!_suppressClick) openDayModal(dateStr); });
     grid.appendChild(cell);
   }
@@ -659,16 +660,16 @@ function renderCalendar(year, month) {
 }
 
 // ── Diary ──────────────────────────────────────────────
-function toggleDiaryMode() {
+function toggleDiaryMode(scrollToDate = null) {
   isDiaryMode = !isDiaryMode;
   document.getElementById('diaryBtn').classList.toggle('diary-btn-active', isDiaryMode);
   document.getElementById('calendarContainer').classList.toggle('hidden', isDiaryMode);
   document.getElementById('legend').classList.toggle('hidden', isDiaryMode);
   document.getElementById('diaryContainer').classList.toggle('hidden', !isDiaryMode);
-  if (isDiaryMode) renderDiary(currentYear, currentMonth);
+  if (isDiaryMode) renderDiary(currentYear, currentMonth, scrollToDate);
 }
 
-function renderDiary(year, month) {
+function renderDiary(year, month, forceScrollDate = null) {
   const container = document.getElementById('diaryContainer');
   container.innerHTML = '';
 
@@ -699,7 +700,7 @@ function renderDiary(year, month) {
     card.className = 'diary-card' + (isToday ? ' diary-today' : '') + (isCompact ? ' diary-compact' : '');
     card.addEventListener('touchstart', e => { _dTY = e.touches[0].clientY; _dTScrolled = false; }, { passive: true });
     card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].clientY - _dTY) > 8) _dTScrolled = true; }, { passive: true });
-    card.addEventListener('touchend', e => { if (!_dTScrolled) { e.preventDefault(); openDayModal(dateStr); } }, { passive: false });
+    card.addEventListener('touchend', e => { if (!_dTScrolled && !_dLpFired) { e.preventDefault(); openDayModal(dateStr); } }, { passive: false });
     card.addEventListener('click', () => openDayModal(dateStr));
 
     // Header
@@ -778,14 +779,16 @@ function renderDiary(year, month) {
     container.appendChild(card);
   }
 
-  // 스크롤: 선택된 날짜 우선, 없으면 오늘
+  // 스크롤: 길게 눌러 진입한 날짜 > 선택된 날짜 > 오늘
   const now = new Date();
   const mmPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
-  const scrollToDate = selectedDate && selectedDate.startsWith(mmPrefix) ? selectedDate : null;
-  if (scrollToDate) {
-    const day = parseInt(scrollToDate.slice(8), 10);
+  const scrollTarget = (forceScrollDate && forceScrollDate.startsWith(mmPrefix)) ? forceScrollDate
+    : (selectedDate && selectedDate.startsWith(mmPrefix)) ? selectedDate : null;
+  if (scrollTarget) {
+    const day = parseInt(scrollTarget.slice(8), 10);
     const targetCard = container.children[day - 1];
-    if (targetCard) setTimeout(() => targetCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
+    const scrollBehavior = forceScrollDate ? 'center' : 'nearest';
+    if (targetCard) setTimeout(() => targetCard.scrollIntoView({ block: scrollBehavior, behavior: 'smooth' }), 60);
   } else if (year === now.getFullYear() && month === now.getMonth()) {
     const todayCard = container.querySelector('.diary-today');
     if (todayCard) setTimeout(() => todayCard.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
@@ -1884,11 +1887,13 @@ function initSwipe() {
   cal.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    const cell = e.target.closest('.calendar-cell');
+    const lpDate = cell ? cell.dataset.date : null;
     _lpTimer = setTimeout(() => {
       _lpTimer = null;
       _suppressClick = true;
       if (navigator.vibrate) navigator.vibrate(30);
-      toggleDiaryMode();
+      toggleDiaryMode(lpDate);
       setTimeout(() => { _suppressClick = false; }, 300);
     }, 600);
   }, { passive: true });
@@ -1905,6 +1910,21 @@ function initSwipe() {
       dx < 0 ? nextMonth() : prevMonth();
     }
   }, { passive: true });
+
+  // 다이어리 컨테이너: 길게 누르면 캘린더 모드로 복귀
+  let _dLpTimer = null;
+  const diary = document.getElementById('diaryContainer');
+  diary.addEventListener('touchstart', () => {
+    _dLpTimer = setTimeout(() => {
+      _dLpTimer = null;
+      _dLpFired = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+      toggleDiaryMode();
+      setTimeout(() => { _dLpFired = false; }, 300);
+    }, 600);
+  }, { passive: true });
+  diary.addEventListener('touchmove', () => { clearTimeout(_dLpTimer); _dLpTimer = null; }, { passive: true });
+  diary.addEventListener('touchend', () => { clearTimeout(_dLpTimer); _dLpTimer = null; }, { passive: true });
 }
 
 // ── PWA install ────────────────────────────────────────
