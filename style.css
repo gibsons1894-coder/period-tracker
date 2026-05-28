@@ -235,7 +235,7 @@ html, body {
   color: var(--color-text-light);
   letter-spacing: 0.2px;
 }
-#weekDays span:first-child { color: #FF6B6B; }
+#weekDays span:first-child { color: #FF3B30; }
 #weekDays span:last-child  { color: #74B9FF; }
 
 /* ── Calendar Grid ── */
@@ -295,7 +295,7 @@ html, body {
 }
 
 /* Sunday column (1st) */
-.calendar-cell:nth-child(7n+1) .day-number { color: #FF6B6B; }
+.calendar-cell:nth-child(7n+1) .day-number { color: #FF3B30; }
 .calendar-cell:nth-child(7n+1).today .day-number { color: #fff; }
 
 /* Saturday column (7th) */
@@ -303,7 +303,7 @@ html, body {
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
 /* 공휴일 — 토요일 위에 선언해 토요일 파란색을 덮어씀 */
-.calendar-cell.holiday .day-number { color: #FF6B6B; }
+.calendar-cell.holiday .day-number { color: #FF3B30; }
 .calendar-cell.holiday.today .day-number { color: #fff; }
 
 /* Period pill — 셀 상단에 #F06292 pill 밴드 */
@@ -874,7 +874,7 @@ html, body {
 .modal-holiday {
   font-size: 12px;
   font-weight: 600;
-  color: #FF6B6B;
+  color: #FF3B30;
   margin-top: 3px;
 }
 
