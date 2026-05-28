@@ -302,6 +302,10 @@ html, body {
 .calendar-cell:nth-child(7n) .day-number { color: #74B9FF; }
 .calendar-cell:nth-child(7n).today .day-number { color: #fff; }
 
+/* 공휴일 — 토요일 위에 선언해 토요일 파란색을 덮어씀 */
+.calendar-cell.holiday .day-number { color: #FF6B6B; }
+.calendar-cell.holiday.today .day-number { color: #fff; }
+
 /* Period pill — 셀 상단에 #F06292 pill 밴드 */
 .calendar-cell.period {
   background: var(--color-cell-bg);
@@ -865,6 +869,13 @@ html, body {
   font-weight: 800;
   letter-spacing: -0.5px;
   color: #1a1a1a;
+}
+
+.modal-holiday {
+  font-size: 12px;
+  font-weight: 600;
+  color: #FF6B6B;
+  margin-top: 3px;
 }
 
 .close-btn {

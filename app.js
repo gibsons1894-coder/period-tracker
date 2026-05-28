@@ -22,6 +22,108 @@ const STORAGE_KEY = 'periodTrackerData_v1';
 
 const INTIMATE_ICONS = ['💟','❤️','🩷','🧡','💛','💚','💙','💜','🖤','🤍','💕','💞','💓','💗','💖','💝','💘','🌸','🍓','💋','🌹','🦋'];
 const RED_HEARTS = new Set(['❤️','🩷','🧡','💕','💞','💓','💗','💖','💝','💘','🌸','🍓','💋','🌹','🦋']);
+
+// ── 한국 공휴일 ────────────────────────────────────────
+const FIXED_HOLIDAYS_NAMED = {
+  '01-01': '신정',
+  '03-01': '삼일절',
+  '05-01': '근로자의 날',
+  '05-05': '어린이날',
+  '06-06': '현충일',
+  '07-17': '제헌절',
+  '08-15': '광복절',
+  '10-03': '개천절',
+  '10-09': '한글날',
+  '12-25': '성탄절',
+};
+// 음력 공휴일, 선거일, 음력 관련 대체공휴일 (연도별)
+// 고정 공휴일 대체공휴일은 getSubstituteHolidays()가 자동 계산
+const YEAR_HOLIDAYS = {
+  2023: {
+    '01-21': '설날 전날', '01-22': '설날', '01-23': '설날 다음날', '01-24': '대체공휴일',
+    '05-27': '부처님오신날', '05-29': '부처님오신날 대체공휴일',
+    '09-28': '추석 전날', '09-29': '추석', '09-30': '추석 다음날', '10-02': '대체공휴일',
+  },
+  2024: {
+    '02-09': '설날 전날', '02-10': '설날', '02-11': '설날 다음날', '02-12': '대체공휴일',
+    '04-10': '제22대 국회의원선거일',
+    '05-15': '부처님오신날',
+    '09-16': '추석 전날', '09-17': '추석', '09-18': '추석 다음날',
+  },
+  2025: {
+    '01-28': '설날 전날', '01-29': '설날', '01-30': '설날 다음날',
+    '05-05': '어린이날·부처님오신날', '05-06': '대체공휴일',
+    '06-03': '제21대 대통령선거일',
+    '10-05': '추석 전날', '10-06': '추석', '10-07': '추석 다음날', '10-08': '대체공휴일',
+  },
+  2026: {
+    '02-16': '설날 전날', '02-17': '설날', '02-18': '설날 다음날',
+    '05-24': '부처님오신날', '05-25': '부처님오신날 대체공휴일',
+    '06-03': '제9회 전국동시지방선거일',
+    '09-24': '추석 전날', '09-25': '추석', '09-26': '추석 다음날', '09-28': '대체공휴일',
+  },
+  2027: {
+    '02-06': '설날 전날', '02-07': '설날', '02-08': '설날 다음날', '02-09': '대체공휴일',
+    '05-13': '부처님오신날',
+    '09-14': '추석 전날', '09-15': '추석', '09-16': '추석 다음날',
+  },
+  2028: {
+    '01-26': '설날 전날', '01-27': '설날', '01-28': '설날 다음날',
+    '04-12': '제23대 국회의원선거일',
+    '05-02': '부처님오신날',
+    '10-02': '추석 전날', '10-03': '추석·개천절', '10-04': '추석 다음날', '10-05': '대체공휴일',
+  },
+  2029: {
+    '02-12': '설날 전날', '02-13': '설날', '02-14': '설날 다음날',
+    '05-20': '부처님오신날',
+    '09-21': '추석 전날', '09-22': '추석', '09-23': '추석 다음날',
+  },
+  2030: {
+    '02-02': '설날 전날', '02-03': '설날', '02-04': '설날 다음날',
+    '05-09': '부처님오신날',
+    '06-04': '제10회 전국동시지방선거일',
+    '09-11': '추석 전날', '09-12': '추석', '09-13': '추석 다음날',
+  },
+};
+
+// 고정 공휴일이 주말이면 다음 평일을 대체공휴일로 자동 계산 (2100년까지)
+const _subCache = {};
+function getSubstituteHolidays(year) {
+  if (_subCache[year]) return _subCache[year];
+  const result = {};
+  const ys = YEAR_HOLIDAYS[year] || {};
+  function mmddOf(d) {
+    return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function occupied(mmdd) {
+    return mmdd in FIXED_HOLIDAYS_NAMED || mmdd in ys || mmdd in result;
+  }
+  for (const [mmdd, name] of Object.entries(FIXED_HOLIDAYS_NAMED)) {
+    const [m, d] = mmdd.split('-').map(Number);
+    const dow = new Date(year, m - 1, d).getDay();
+    if (dow === 0 || dow === 6) {
+      const sub = new Date(year, m - 1, d);
+      sub.setDate(sub.getDate() + (dow === 6 ? 2 : 1));
+      while (occupied(mmddOf(sub)) || sub.getDay() === 0 || sub.getDay() === 6)
+        sub.setDate(sub.getDate() + 1);
+      result[mmddOf(sub)] = name + ' 대체공휴일';
+    }
+  }
+  _subCache[year] = result;
+  return result;
+}
+
+function getHolidayName(dateStr) {
+  const year = parseInt(dateStr.slice(0, 4), 10);
+  const mmdd = dateStr.slice(5);
+  return (YEAR_HOLIDAYS[year] || {})[mmdd]
+    || FIXED_HOLIDAYS_NAMED[mmdd]
+    || getSubstituteHolidays(year)[mmdd]
+    || null;
+}
+function isKoreanHoliday(dateStr) {
+  return getHolidayName(dateStr) !== null;
+}
 const SYNC_CODE_KEY = 'syncCode';
 const SYNC_TS_KEY   = 'syncLastModified';
 
@@ -471,6 +573,7 @@ function renderCalendar(year, month) {
 
     const classes = ['calendar-cell'];
     if (dateStr === today) classes.push('today');
+    if (isKoreanHoliday(dateStr)) classes.push('holiday');
 
     if (actualPeriod.has(dateStr)) {
       classes.push('period');
@@ -571,6 +674,15 @@ function openDayModal(dateStr) {
   }
 
   document.getElementById('modalStatus').textContent = statusParts.join('  ') || '';
+
+  const holidayEl = document.getElementById('modalHoliday');
+  const holidayName = getHolidayName(dateStr);
+  if (holidayName) {
+    holidayEl.textContent = holidayName;
+    holidayEl.classList.remove('hidden');
+  } else {
+    holidayEl.classList.add('hidden');
+  }
 
   // Period start button state
   const isCycleStart = data.cycles.some(c => c.startDate === dateStr);
