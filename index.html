@@ -22,6 +22,7 @@
     <button id="monthTitle" class="month-title" aria-label="연도·월 선택"></button>
     <button id="nextMonth" class="nav-btn" aria-label="다음 달">›</button>
     <div class="header-actions">
+      <button id="diaryBtn" class="header-icon-btn" aria-label="다이어리 모드">📓</button>
       <button id="statsBtn" class="header-icon-btn" aria-label="통계">📊</button>
       <button id="settingsBtn" class="header-icon-btn" aria-label="설정">⚙️</button>
     </div>
@@ -52,6 +53,9 @@
     <div id="calendar" class="calendar-grid"></div>
   </div>
 
+  <!-- Diary -->
+  <div id="diaryContainer" class="diary-container hidden"></div>
+
   <!-- Legend -->
   <div id="legend">
     <div class="legend-item"><span class="dot period"></span>생리</div>
@@ -74,6 +78,7 @@
     </div>
     <div class="modal-body">
       <div id="modalStatus" class="modal-status"></div>
+      <div id="modalActivityChips" class="modal-activity-chips hidden"></div>
       <div class="modal-actions">
         <div class="modal-section-label">생리</div>
         <button id="togglePeriod" class="action-btn period-btn">🩸 생리 시작일로 설정</button>

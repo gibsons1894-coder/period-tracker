@@ -98,7 +98,10 @@ function getSubstituteHolidays(year) {
   function occupied(mmdd) {
     return mmdd in FIXED_HOLIDAYS_NAMED || mmdd in ys || mmdd in result;
   }
+  // 대체공휴일 미적용 공휴일 (현충일, 제헌절 등 법정 제외)
+  const NO_SUBSTITUTE = new Set(['06-06']);
   for (const [mmdd, name] of Object.entries(FIXED_HOLIDAYS_NAMED)) {
+    if (NO_SUBSTITUTE.has(mmdd)) continue;
     const [m, d] = mmdd.split('-').map(Number);
     const dow = new Date(year, m - 1, d).getDay();
     if (dow === 0 || dow === 6) {
@@ -126,6 +129,12 @@ function isKoreanHoliday(dateStr) {
 }
 const SYNC_CODE_KEY = 'syncCode';
 const SYNC_TS_KEY   = 'syncLastModified';
+
+// ── Diary mode ────────────────────────────────────────
+let isDiaryMode = false;
+let _suppressClick = false;
+const DAYS_KO = ['일', '월', '화', '수', '목', '금', '토'];
+let _dTY = 0, _dTScrolled = false;
 
 // ── Sync ───────────────────────────────────────────────
 let syncCode = localStorage.getItem(SYNC_CODE_KEY) || null;
@@ -642,14 +651,156 @@ function renderCalendar(year, month) {
 
     if (ind.children.length) cell.appendChild(ind);
 
-    cell.addEventListener('click', () => openDayModal(dateStr));
+    cell.addEventListener('click', () => { if (!_suppressClick) openDayModal(dateStr); });
     grid.appendChild(cell);
+  }
+
+  if (isDiaryMode) renderDiary(year, month);
+}
+
+// ── Diary ──────────────────────────────────────────────
+function toggleDiaryMode() {
+  isDiaryMode = !isDiaryMode;
+  document.getElementById('diaryBtn').classList.toggle('diary-btn-active', isDiaryMode);
+  document.getElementById('calendarContainer').classList.toggle('hidden', isDiaryMode);
+  document.getElementById('legend').classList.toggle('hidden', isDiaryMode);
+  document.getElementById('diaryContainer').classList.toggle('hidden', !isDiaryMode);
+  if (isDiaryMode) renderDiary(currentYear, currentMonth);
+}
+
+function renderDiary(year, month) {
+  const container = document.getElementById('diaryContainer');
+  container.innerHTML = '';
+
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const todayStr = toDateStr(new Date());
+
+  const actualPeriod = getActualPeriodDays();
+  const predictedPeriod = getPredictedPeriodDays();
+  const { fertile, ovulation } = getFertileAndOvulationDays();
+  const intimate = new Set(data.intimateDates || []);
+  const exercise = new Set(data.exerciseDates || []);
+  const game     = new Set(data.gameDates || []);
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dow = new Date(year, month, day).getDay();
+    const isSun = dow === 0, isSat = dow === 6;
+    const isToday    = dateStr === todayStr;
+    const holidayName = getHolidayName(dateStr);
+    const memo       = data.memos[dateStr] || '';
+    const hasActivity = intimate.has(dateStr) || exercise.has(dateStr) || game.has(dateStr);
+    const hasPeriod   = actualPeriod.has(dateStr) || predictedPeriod.has(dateStr);
+    const hasFertile  = fertile.has(dateStr) || ovulation.has(dateStr);
+    const hasContent  = memo || hasActivity || hasPeriod || hasFertile;
+    const isCompact   = !hasContent && !isToday && !holidayName;
+
+    const card = document.createElement('div');
+    card.className = 'diary-card' + (isToday ? ' diary-today' : '') + (isCompact ? ' diary-compact' : '');
+    card.addEventListener('touchstart', e => { _dTY = e.touches[0].clientY; _dTScrolled = false; }, { passive: true });
+    card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].clientY - _dTY) > 8) _dTScrolled = true; }, { passive: true });
+    card.addEventListener('touchend', e => { if (!_dTScrolled) { e.preventDefault(); openDayModal(dateStr); } }, { passive: false });
+    card.addEventListener('click', () => openDayModal(dateStr));
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'diary-header';
+
+    const numEl = document.createElement('span');
+    numEl.className = 'diary-date-num' + (isSun || holidayName ? ' diary-red' : isSat ? ' diary-blue' : '');
+    numEl.textContent = day;
+
+    const meta = document.createElement('div');
+    meta.className = 'diary-meta';
+
+    const dowEl = document.createElement('span');
+    dowEl.className = 'diary-dow' + (isSun || holidayName ? ' diary-red' : isSat ? ' diary-blue' : '');
+    dowEl.textContent = DAYS_KO[dow] + '요일';
+    meta.appendChild(dowEl);
+
+    if (isToday) {
+      const badge = document.createElement('span');
+      badge.className = 'diary-badge-today';
+      badge.textContent = '오늘';
+      meta.appendChild(badge);
+    }
+    if (holidayName) {
+      const hn = document.createElement('div');
+      hn.className = 'diary-holiday-name';
+      hn.textContent = holidayName;
+      meta.appendChild(hn);
+    }
+
+    hdr.appendChild(numEl);
+    hdr.appendChild(meta);
+    card.appendChild(hdr);
+
+    if (!isCompact) {
+      // 칩 한 줄 — 생리 → 사랑한날 → 운동 → 게임
+      const allChips = [];
+      if (actualPeriod.has(dateStr))          allChips.push({ text: '🩸 생리', cls: 'chip-health' });
+      else if (predictedPeriod.has(dateStr))  allChips.push({ text: '🩸 생리 예정', cls: 'chip-predicted' });
+      if (ovulation.has(dateStr))             allChips.push({ text: '🌸 배란일', cls: 'chip-health' });
+      else if (fertile.has(dateStr))          allChips.push({ text: '💙 가임기', cls: 'chip-health' });
+      if (intimate.has(dateStr)) {
+        const cnt = data.intimateCounts[dateStr] || 1;
+        allChips.push({ text: (data.intimateIcon || '💟') + (cnt > 1 ? ` ×${cnt}` : ''), cls: 'chip-activity' });
+      }
+      if (exercise.has(dateStr)) allChips.push({ text: '🏃 운동', cls: 'chip-activity' });
+      if (game.has(dateStr))     allChips.push({ text: '🎮 게임', cls: 'chip-activity' });
+
+      if (allChips.length) {
+        const chipRow = document.createElement('div');
+        chipRow.className = 'diary-act-row';
+        allChips.forEach(({ text, cls }) => {
+          const c = document.createElement('span');
+          c.className = 'diary-chip ' + cls;
+          c.textContent = text;
+          chipRow.appendChild(c);
+        });
+        card.appendChild(chipRow);
+      }
+
+      // 메모
+      if (memo) {
+        const memoEl = document.createElement('div');
+        memoEl.className = 'diary-memo';
+        memoEl.textContent = memo;
+        card.appendChild(memoEl);
+      } else if (isToday) {
+        const memoEl = document.createElement('div');
+        memoEl.className = 'diary-memo diary-memo-hint';
+        memoEl.textContent = '오늘의 기록을 남겨보세요...';
+        card.appendChild(memoEl);
+      }
+    }
+
+    container.appendChild(card);
+  }
+
+  // 스크롤: 선택된 날짜 우선, 없으면 오늘
+  const now = new Date();
+  const mmPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+  const scrollToDate = selectedDate && selectedDate.startsWith(mmPrefix) ? selectedDate : null;
+  if (scrollToDate) {
+    const day = parseInt(scrollToDate.slice(8), 10);
+    const targetCard = container.children[day - 1];
+    if (targetCard) setTimeout(() => targetCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
+  } else if (year === now.getFullYear() && month === now.getMonth()) {
+    const todayCard = container.querySelector('.diary-today');
+    if (todayCard) setTimeout(() => todayCard.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
   }
 }
 
 // ── Day modal ──────────────────────────────────────────
 function openDayModal(dateStr) {
   selectedDate = dateStr;
+
+  // Cancel any in-progress close animation so re-open works cleanly
+  const _dm = document.getElementById('dayModal');
+  const _dmc = _dm.querySelector('.modal-content');
+  _dm.classList.remove('closing');
+  _dmc.classList.remove('closing');
 
   document.getElementById('modalDate').textContent = formatDate(dateStr);
 
@@ -673,7 +824,37 @@ function openDayModal(dateStr) {
     if (fertile.has(dateStr) || predictedFertile.has(dateStr)) statusParts.push('💙 가임기');
   }
 
-  document.getElementById('modalStatus').textContent = statusParts.join('  ') || '';
+  const statusEl = document.getElementById('modalStatus');
+  const chipContainer = document.getElementById('modalActivityChips');
+  const _ma = document.querySelector('.modal-actions');
+  if (_ma) _ma.classList.toggle('hidden', isDiaryMode);
+
+  if (isDiaryMode) {
+    // 다이어리 모드: 생리+활동 칩 한 줄, 텍스트 상태 숨김
+    statusEl.textContent = '';
+    statusEl.classList.add('hidden');
+    const chips = [];
+    if (getActualPeriodDays().has(dateStr))     chips.push({ text: '🩸 생리', cls: 'chip-health' });
+    else if (getPredictedPeriodDays().has(dateStr)) chips.push({ text: '🩸 생리 예정', cls: 'chip-predicted' });
+    if ((data.intimateDates || []).includes(dateStr)) {
+      const cnt = (data.intimateCounts || {})[dateStr] || 1;
+      chips.push({ text: (data.intimateIcon || '💟') + (cnt > 1 ? ` ×${cnt}` : ''), cls: 'chip-activity' });
+    }
+    if ((data.exerciseDates || []).includes(dateStr)) chips.push({ text: '🏃 운동', cls: 'chip-activity' });
+    if ((data.gameDates || []).includes(dateStr))     chips.push({ text: '🎮 게임', cls: 'chip-activity' });
+    if (chips.length) {
+      chipContainer.innerHTML = chips.map(c => `<span class="modal-act-chip ${c.cls}">${c.text}</span>`).join('');
+      chipContainer.classList.remove('hidden');
+    } else {
+      chipContainer.innerHTML = '';
+      chipContainer.classList.add('hidden');
+    }
+  } else {
+    statusEl.textContent = statusParts.join('  ') || '';
+    statusEl.classList.remove('hidden');
+    chipContainer.innerHTML = '';
+    chipContainer.classList.add('hidden');
+  }
 
   const holidayEl = document.getElementById('modalHoliday');
   const holidayName = getHolidayName(dateStr);
@@ -736,7 +917,7 @@ function openDayModal(dateStr) {
   // Memo
   document.getElementById('memoInput').value = data.memos[dateStr] || '';
 
-  document.getElementById('dayModal').classList.remove('hidden');
+  _dm.classList.remove('hidden');
 }
 
 function _closeModal(id, callback) {
@@ -1697,15 +1878,27 @@ function selectPickerMonth(month) {
 
 // Touch swipe for month navigation
 function initSwipe() {
-  let startX = 0, startY = 0;
+  let startX = 0, startY = 0, _lpTimer = null;
   const cal = document.getElementById('calendarContainer');
 
   cal.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    _lpTimer = setTimeout(() => {
+      _lpTimer = null;
+      _suppressClick = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+      toggleDiaryMode();
+      setTimeout(() => { _suppressClick = false; }, 300);
+    }, 600);
+  }, { passive: true });
+
+  cal.addEventListener('touchmove', () => {
+    clearTimeout(_lpTimer); _lpTimer = null;
   }, { passive: true });
 
   cal.addEventListener('touchend', e => {
+    clearTimeout(_lpTimer); _lpTimer = null;
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -1753,6 +1946,7 @@ function init() {
   document.getElementById('pickerBackdrop').addEventListener('click', closeMonthPicker);
   document.getElementById('pickerPrevYear').addEventListener('click', () => { pickerYear--; renderMonthPicker(); });
   document.getElementById('pickerNextYear').addEventListener('click', () => { pickerYear++; renderMonthPicker(); });
+  document.getElementById('diaryBtn').addEventListener('click', toggleDiaryMode);
   document.getElementById('statsBtn').addEventListener('click', openStats);
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
