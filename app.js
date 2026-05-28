@@ -2049,6 +2049,21 @@ function init() {
   // 동기화: 시작 시 로드, 이후 30초마다 체크
   setTimeout(syncLoad, 3000);
   setInterval(syncLoad, 30000);
+
+  // 뒤로가기 제스처 처리 (모달 닫기 / 다이어리→캘린더 전환)
+  history.pushState(null, '');
+  window.addEventListener('popstate', () => {
+    history.pushState(null, ''); // 다음 뒤로가기도 흡수
+    const isOpen = id => {
+      const el = document.getElementById(id);
+      return el && !el.classList.contains('hidden') && !el.classList.contains('closing');
+    };
+    if (isOpen('dayModal'))         { closeDayModal();    return; }
+    if (isOpen('statsModal'))       { closeStats();       return; }
+    if (isOpen('settingsModal'))    { closeSettings();    return; }
+    if (isOpen('fertileInfoModal')) { closeFertileInfo(); return; }
+    if (isDiaryMode)                { toggleDiaryMode();  return; }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);
