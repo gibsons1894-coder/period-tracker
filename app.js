@@ -701,7 +701,7 @@ function renderDiary(year, month, forceScrollDate = null) {
     card.addEventListener('touchstart', e => { _dTY = e.touches[0].clientY; _dTScrolled = false; }, { passive: true });
     card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].clientY - _dTY) > 8) _dTScrolled = true; }, { passive: true });
     card.addEventListener('touchend', e => { if (!_dTScrolled && !_dLpFired) { e.preventDefault(); openDayModal(dateStr); } }, { passive: false });
-    card.addEventListener('click', () => openDayModal(dateStr));
+    card.addEventListener('click', () => { if (!_suppressClick && !_dLpFired) openDayModal(dateStr); });
 
     // Header
     const hdr = document.createElement('div');
@@ -1894,7 +1894,7 @@ function initSwipe() {
       _suppressClick = true;
       if (navigator.vibrate) navigator.vibrate(30);
       toggleDiaryMode(lpDate);
-      setTimeout(() => { _suppressClick = false; }, 300);
+      setTimeout(() => { _suppressClick = false; }, 400);
     }, 600);
   }, { passive: true });
 
@@ -1918,9 +1918,10 @@ function initSwipe() {
     _dLpTimer = setTimeout(() => {
       _dLpTimer = null;
       _dLpFired = true;
+      _suppressClick = true;
       if (navigator.vibrate) navigator.vibrate(30);
       toggleDiaryMode();
-      setTimeout(() => { _dLpFired = false; }, 300);
+      setTimeout(() => { _dLpFired = false; _suppressClick = false; }, 400);
     }, 600);
   }, { passive: true });
   diary.addEventListener('touchmove', () => { clearTimeout(_dLpTimer); _dLpTimer = null; }, { passive: true });
