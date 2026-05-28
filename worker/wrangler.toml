@@ -2,9 +2,9 @@ name = "period-tracker-push"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
-# 매일 오전 8시 KST (= 23:00 UTC)
+# 15분마다 실행 — 분 단위 알림 시각 지원
 [triggers]
-crons = ["0 * * * *"]
+crons = ["*/15 * * * *"]
 
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"

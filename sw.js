@@ -1,4 +1,4 @@
-const CACHE_NAME = 'period-tracker-v31';
+const CACHE_NAME = 'period-tracker-v32';
 const IMAGE_CACHE = 'period-tracker-images-v1';
 const IMAGE_URLS = ['./icon_192.png', './icon_512.png', './neulsang_logo.png'];
 
@@ -48,8 +48,8 @@ self.addEventListener('push', event => {
   const title = data.title || '달력';
   const options = {
     body: data.body || '생리 예정일이 다가왔어요!',
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    icon: './icon_192.png',
+    badge: './icon_192.png',
     tag: 'period-reminder',
     renotify: true,
     vibrate: [200, 100, 200]
@@ -76,8 +76,8 @@ self.addEventListener('message', event => {
     setTimeout(() => {
       self.registration.showNotification(title, {
         body,
-        icon: './icon-192.png',
-        badge: './icon-192.png',
+        icon: './icon_192.png',
+        badge: './icon_192.png',
         tag: 'period-reminder',
         renotify: true,
         vibrate: [200, 100, 200]

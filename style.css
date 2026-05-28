@@ -934,38 +934,37 @@ html, body {
 .action-btn:active { opacity: 0.75; transform: scale(0.98); }
 
 .period-btn {
-  background: #FFF0F0;
-  color: var(--color-period);
-  border: 2px solid #FFCDD2;
+  background: #FFF5F5;
+  color: #C62828;
+  border: 1.5px solid #FFCDD2;
 }
 .period-btn.active {
-  background: var(--color-period);
-  color: #fff;
-  border-color: var(--color-period);
+  background: #FFCDD2;
+  color: #B71C1C;
+  border-color: #EF9A9A;
 }
 
 .period-end-btn {
-  background: #FFF0F0;
-  color: #c0334a;
-  border: 2px solid #FFCDD2;
-  border-style: dashed;
+  background: #FFF5F5;
+  color: #C62828;
+  border: 1.5px dashed #FFCDD2;
 }
 .period-end-btn.active {
-  background: #c0334a;
-  color: #fff;
+  background: #FFCDD2;
+  color: #B71C1C;
   border-style: solid;
-  border-color: #c0334a;
+  border-color: #EF9A9A;
 }
 
 .intimate-btn {
   background: #FFF0F8;
-  color: var(--color-primary);
-  border: 2px solid #FCE4EC;
+  color: #AD1457;
+  border: 1.5px solid #F8BBD9;
 }
 .intimate-btn.active {
-  background: var(--color-primary);
-  color: #fff;
-  border-color: var(--color-primary);
+  background: #FCE4EC;
+  color: #880E4F;
+  border-color: #F48FB1;
 }
 
 .activity-row {
@@ -976,24 +975,24 @@ html, body {
   flex: 1;
 }
 .exercise-btn {
-  background: #F0FFF4;
-  color: #27ae60;
-  border: 2px solid #b2dfdb;
+  background: #F1F8E9;
+  color: #2E7D32;
+  border: 1.5px solid #C8E6C9;
 }
 .exercise-btn.active {
-  background: #27ae60;
-  color: #fff;
-  border-color: #27ae60;
+  background: #DCEDC8;
+  color: #1B5E20;
+  border-color: #A5D6A7;
 }
 .game-btn {
-  background: #F0F4FF;
-  color: #3d5afe;
-  border: 2px solid #c5cae9;
+  background: #EDE7F6;
+  color: #512DA8;
+  border: 1.5px solid #D1C4E9;
 }
 .game-btn.active {
-  background: #3d5afe;
-  color: #fff;
-  border-color: #3d5afe;
+  background: #D1C4E9;
+  color: #311B92;
+  border-color: #B39DDB;
 }
 
 .hidden { display: none !important; }
@@ -1005,10 +1004,47 @@ html, body {
   gap: 10px;
 }
 
+.memo-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .memo-section label {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-light);
+}
+
+.memo-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mcp-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.12s, border-color 0.12s;
+  outline: none;
+}
+.mcp-btn:active { transform: scale(0.85); }
+.mcp-btn.mcp-active { border-color: #555; }
+
+.mcp-reset {
+  background: #F2F2F7;
+  color: #AEAEB2;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 #memoInput {
@@ -1023,9 +1059,16 @@ html, body {
   color: var(--color-text);
   background: #FAFAFA;
   line-height: 1.5;
-  transition: border-color 0.15s;
+  transition: background 0.2s, border-color 0.15s;
 }
-#memoInput:focus { border-color: var(--color-primary); background: #fff; }
+#memoInput:focus { border-color: var(--color-primary); }
+
+/* 캘린더 메모 형광펜 하이라이트 */
+.memo-preview-hl {
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin: 0 -1px;
+}
 
 /* Sync UI */
 .sync-status-text {
@@ -1648,7 +1691,7 @@ html, body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.07);
   cursor: pointer;
   transition: background 0.12s;
-  border-left: 3px solid transparent;
+  border-left: 5px solid transparent;
 }
 .diary-card:active { background: #F7F7F7; }
 
@@ -1692,6 +1735,7 @@ html, body {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-light);
+  margin-right: 4px;
 }
 .diary-compact .diary-dow { font-size: 12px; }
 
@@ -1713,7 +1757,6 @@ html, body {
   font-size: 11px;
   font-weight: 600;
   color: #FF3B30;
-  margin-top: 1px;
 }
 
 .diary-memo {

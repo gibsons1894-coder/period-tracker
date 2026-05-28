@@ -278,6 +278,7 @@ function defaultData() {
     exerciseDates: [],    // ['YYYY-MM-DD']
     gameDates: [],        // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
+    memoColors: {},       // {'YYYY-MM-DD': '#hexcolor'}
     notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
   };
 }
@@ -285,6 +286,16 @@ function defaultData() {
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   scheduleSyncSave();
+}
+
+// ── Color utilities ────────────────────────────────────
+function getContrastColor(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lin = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.35 ? '#1C1C1E' : '#ffffff';
 }
 
 // ── Date utilities ─────────────────────────────────────
@@ -646,6 +657,12 @@ function renderCalendar(year, month) {
       const m = document.createElement('div');
       m.className = 'memo-preview';
       m.textContent = data.memos[dateStr];
+      const mc = (data.memoColors || {})[dateStr];
+      if (mc) {
+        m.style.background = mc;
+        m.style.color = getContrastColor(mc);
+        m.classList.add('memo-preview-hl');
+      }
       ind.appendChild(m);
     }
 
@@ -667,6 +684,13 @@ function toggleDiaryMode(scrollToDate = null) {
   document.getElementById('legend').classList.toggle('hidden', isDiaryMode);
   document.getElementById('diaryContainer').classList.toggle('hidden', !isDiaryMode);
   if (isDiaryMode) renderDiary(currentYear, currentMonth, scrollToDate);
+}
+
+function _chip(text, cls) {
+  const c = document.createElement('span');
+  c.className = 'diary-chip ' + cls;
+  c.textContent = text;
+  return c;
 }
 
 function renderDiary(year, month, forceScrollDate = null) {
@@ -693,11 +717,13 @@ function renderDiary(year, month, forceScrollDate = null) {
     const hasActivity = intimate.has(dateStr) || exercise.has(dateStr) || game.has(dateStr);
     const hasPeriod   = actualPeriod.has(dateStr) || predictedPeriod.has(dateStr);
     const hasFertile  = fertile.has(dateStr) || ovulation.has(dateStr);
+    const memoColor   = (data.memoColors || {})[dateStr] || null;
     const hasContent  = memo || hasActivity || hasPeriod || hasFertile;
     const isCompact   = !hasContent && !isToday && !holidayName;
 
     const card = document.createElement('div');
     card.className = 'diary-card' + (isToday ? ' diary-today' : '') + (isCompact ? ' diary-compact' : '');
+    if (memoColor) card.style.borderLeftColor = memoColor;
     card.addEventListener('touchstart', e => { _dTY = e.touches[0].clientY; _dTScrolled = false; }, { passive: true });
     card.addEventListener('touchmove', e => { if (Math.abs(e.touches[0].clientY - _dTY) > 8) _dTScrolled = true; }, { passive: true });
     card.addEventListener('touchend', e => { if (!_dTScrolled && !_dLpFired) { e.preventDefault(); openDayModal(dateStr); } }, { passive: false });
@@ -725,8 +751,21 @@ function renderDiary(year, month, forceScrollDate = null) {
       badge.textContent = '오늘';
       meta.appendChild(badge);
     }
+    // 칩 — 요일 오른쪽에 인라인, 줄바꿈 허용
+    if (actualPeriod.has(dateStr))          meta.appendChild(_chip('🩸 생리', 'chip-health'));
+    else if (predictedPeriod.has(dateStr))  meta.appendChild(_chip('🩸 생리 예정', 'chip-predicted'));
+    if (ovulation.has(dateStr))             meta.appendChild(_chip('🌸 배란일', 'chip-health'));
+    else if (fertile.has(dateStr))          meta.appendChild(_chip('💙 가임기', 'chip-health'));
+    if (intimate.has(dateStr)) {
+      const cnt = data.intimateCounts[dateStr] || 1;
+      meta.appendChild(_chip((data.intimateIcon || '💟') + (cnt > 1 ? ` ×${cnt}` : ''), 'chip-activity'));
+    }
+    if (exercise.has(dateStr)) meta.appendChild(_chip('🏃 운동', 'chip-activity'));
+    if (game.has(dateStr))     meta.appendChild(_chip('🎮 게임', 'chip-activity'));
+
+    // 공휴일 이름 — width:100% 로 항상 단독 줄
     if (holidayName) {
-      const hn = document.createElement('div');
+      const hn = document.createElement('span');
       hn.className = 'diary-holiday-name';
       hn.textContent = holidayName;
       meta.appendChild(hn);
@@ -737,36 +776,18 @@ function renderDiary(year, month, forceScrollDate = null) {
     card.appendChild(hdr);
 
     if (!isCompact) {
-      // 칩 한 줄 — 생리 → 사랑한날 → 운동 → 게임
-      const allChips = [];
-      if (actualPeriod.has(dateStr))          allChips.push({ text: '🩸 생리', cls: 'chip-health' });
-      else if (predictedPeriod.has(dateStr))  allChips.push({ text: '🩸 생리 예정', cls: 'chip-predicted' });
-      if (ovulation.has(dateStr))             allChips.push({ text: '🌸 배란일', cls: 'chip-health' });
-      else if (fertile.has(dateStr))          allChips.push({ text: '💙 가임기', cls: 'chip-health' });
-      if (intimate.has(dateStr)) {
-        const cnt = data.intimateCounts[dateStr] || 1;
-        allChips.push({ text: (data.intimateIcon || '💟') + (cnt > 1 ? ` ×${cnt}` : ''), cls: 'chip-activity' });
-      }
-      if (exercise.has(dateStr)) allChips.push({ text: '🏃 운동', cls: 'chip-activity' });
-      if (game.has(dateStr))     allChips.push({ text: '🎮 게임', cls: 'chip-activity' });
-
-      if (allChips.length) {
-        const chipRow = document.createElement('div');
-        chipRow.className = 'diary-act-row';
-        allChips.forEach(({ text, cls }) => {
-          const c = document.createElement('span');
-          c.className = 'diary-chip ' + cls;
-          c.textContent = text;
-          chipRow.appendChild(c);
-        });
-        card.appendChild(chipRow);
-      }
-
       // 메모
       if (memo) {
         const memoEl = document.createElement('div');
         memoEl.className = 'diary-memo';
         memoEl.textContent = memo;
+        if (memoColor) {
+          memoEl.style.background = memoColor;
+          memoEl.style.color = getContrastColor(memoColor);
+          memoEl.style.borderTop = 'none';
+          memoEl.style.borderRadius = '8px';
+          memoEl.style.padding = '8px 10px';
+        }
         card.appendChild(memoEl);
       } else if (isToday) {
         const memoEl = document.createElement('div');
@@ -918,7 +939,18 @@ function openDayModal(dateStr) {
   gameBtn.classList.toggle('active', isGame);
 
   // Memo
-  document.getElementById('memoInput').value = data.memos[dateStr] || '';
+  const memoInput = document.getElementById('memoInput');
+  memoInput.value = data.memos[dateStr] || '';
+
+  // 색상 피커
+  const mcp = document.getElementById('memoColorPicker');
+  mcp.classList.remove('hidden');
+  const curColor = (data.memoColors || {})[dateStr] || '';
+  mcp.querySelectorAll('.mcp-btn').forEach(btn => {
+    btn.classList.toggle('mcp-active', btn.dataset.color === curColor);
+  });
+  memoInput.style.background = curColor || '';
+  memoInput.style.borderColor = curColor || '';
 
   _dm.classList.remove('hidden');
 }
@@ -941,8 +973,29 @@ function closeDayModal() {
   saveMemo();
   _closeModal('dayModal', () => {
     document.getElementById('iconPicker').classList.add('hidden');
+    const mi = document.getElementById('memoInput');
+    mi.style.background = '';
+    mi.style.borderColor = '';
     selectedDate = null;
   });
+}
+
+function selectMemoColor(color) {
+  if (!selectedDate) return;
+  if (!data.memoColors) data.memoColors = {};
+  if (color) {
+    data.memoColors[selectedDate] = color;
+  } else {
+    delete data.memoColors[selectedDate];
+  }
+  saveData();
+  const mi = document.getElementById('memoInput');
+  mi.style.background = color || '';
+  mi.style.borderColor = color || '';
+  document.querySelectorAll('#memoColorPicker .mcp-btn').forEach(btn => {
+    btn.classList.toggle('mcp-active', btn.dataset.color === color);
+  });
+  renderCalendar(currentYear, currentMonth);
 }
 
 function openIconPicker() {
@@ -1022,6 +1075,7 @@ function togglePeriodEnd() {
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
+  updatePushServer();
   openDayModal(selectedDate);
 }
 
@@ -1627,10 +1681,15 @@ function checkAndNotify() {
   const today = toDateStr(new Date());
   if (lastShown === today) return;
 
+  // 설정한 알림 시각 이전엔 발송하지 않음
+  const [nh, nm] = (data.notifications.notifyTime ?? '08:00').split(':').map(Number);
+  const now = new Date();
+  if (now.getHours() < nh || (now.getHours() === nh && now.getMinutes() < nm)) return;
+
   const info = getNextPeriodInfo();
   if (!info) return;
 
-  let title = '생리 트래커';
+  let title = '달력';
   let body = null;
 
   if (info.type === 'upcoming' && info.days <= data.notifications.daysBefore) {
@@ -1644,8 +1703,8 @@ function checkAndNotify() {
       navigator.serviceWorker.ready.then(reg => {
         reg.showNotification(title, {
           body,
-          icon: './icon-192.png',
-          badge: './icon-192.png',
+          icon: './icon_192.png',
+          badge: './icon_192.png',
           tag: 'period-reminder',
           renotify: true,
           vibrate: [200, 100, 200]

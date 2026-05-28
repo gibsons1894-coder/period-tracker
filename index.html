@@ -97,7 +97,18 @@
         </div>
       </div>
       <div class="memo-section">
-        <label for="memoInput">메모</label>
+        <div class="memo-label-row">
+          <label for="memoInput">메모</label>
+          <div id="memoColorPicker" class="memo-color-picker hidden">
+            <button class="mcp-btn mcp-reset" data-color="" onclick="selectMemoColor('')">✕</button>
+            <button class="mcp-btn" data-color="#FFF9C4" style="background:#FFF9C4" onclick="selectMemoColor('#FFF9C4')"></button>
+            <button class="mcp-btn" data-color="#FCE4EC" style="background:#FCE4EC" onclick="selectMemoColor('#FCE4EC')"></button>
+            <button class="mcp-btn" data-color="#DCEDC8" style="background:#DCEDC8" onclick="selectMemoColor('#DCEDC8')"></button>
+            <button class="mcp-btn" data-color="#BBDEFB" style="background:#BBDEFB" onclick="selectMemoColor('#BBDEFB')"></button>
+            <button class="mcp-btn" data-color="#E1BEE7" style="background:#E1BEE7" onclick="selectMemoColor('#E1BEE7')"></button>
+            <button class="mcp-btn" data-color="#FFE0B2" style="background:#FFE0B2" onclick="selectMemoColor('#FFE0B2')"></button>
+          </div>
+        </div>
         <textarea id="memoInput" placeholder="이 날의 메모를 입력하세요..." rows="4"></textarea>
       </div>
     </div>

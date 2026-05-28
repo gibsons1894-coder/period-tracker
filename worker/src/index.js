@@ -22,10 +22,10 @@ function diffDays(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
-// "HH:MM" KST → UTC hour (0~23)
-function kstTimeToUtcHour(timeStr) {
+// "HH:MM" KST → UTC 분 (0~1439)
+function kstTimeToUtcMinutes(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
-  return ((h - 9) + 24) % 24;
+  return ((h * 60 + m) - 9 * 60 + 24 * 60) % (24 * 60);
 }
 
 export default {
@@ -99,24 +99,33 @@ export default {
     return res({ error: 'not found' }, 404);
   },
 
-  // ── Hourly cron ───────────────────────────────────────
+  // ── 15분 주기 cron ────────────────────────────────────
   async scheduled(_event, env) {
     const now = new Date();
-    const currentUtcHour = now.getUTCHours();
-    const todayStr = now.toISOString().slice(0, 10);
+
+    // KST 기준 오늘 날짜 (UTC+9)
+    const kstNow = new Date(now.getTime() + 9 * 3600 * 1000);
+    const todayStr = kstNow.toISOString().slice(0, 10);
+
+    // 현재 UTC 분과 15분 윈도우 계산
+    const currentUtcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const windowStart = Math.floor(currentUtcMinutes / 15) * 15;
+    const windowEnd = windowStart + 15;
+
     const { keys } = await env.SUBSCRIPTIONS.list();
 
     for (const { name } of keys) {
+      if (name.startsWith('sync-')) continue;
       try {
         const raw = await env.SUBSCRIPTIONS.get(name);
         if (!raw) continue;
 
         const { subscription, nextPeriodDate, daysBefore, notifyTime } = JSON.parse(raw);
-        if (!nextPeriodDate) continue;
+        if (!subscription || !nextPeriodDate) continue;
 
-        // 이 사용자의 알림 시각(UTC)이 현재 시각과 다르면 건너뜀
-        const targetUtcHour = kstTimeToUtcHour(notifyTime ?? '08:00');
-        if (currentUtcHour !== targetUtcHour) continue;
+        // 이 사용자의 알림 시각(UTC 분)이 현재 15분 윈도우 안에 없으면 건너뜀
+        const targetUtcMinutes = kstTimeToUtcMinutes(notifyTime ?? '08:00');
+        if (targetUtcMinutes < windowStart || targetUtcMinutes >= windowEnd) continue;
 
         const diff = diffDays(todayStr, nextPeriodDate);
         if (diff < 0 || diff > (daysBefore ?? 1)) continue;
