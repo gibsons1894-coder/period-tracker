@@ -104,13 +104,13 @@ export default {
 
     // POST /data/save  { code, data, lastModified }
     if (request.method === 'POST' && pathname === '/data/save') {
-      const { code, data, lastModified } = await request.json();
+      const { code, data, lastModified, knownServerTs = 0 } = await request.json();
       if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
       const key = `sync-${code}`;
       const existing = await env.SUBSCRIPTIONS.get(key);
       if (existing) {
         const prev = JSON.parse(existing);
-        if (prev.lastModified !== lastModified) {
+        if (prev.lastModified > knownServerTs) {
           const merged = mergeData(data, lastModified, prev.data, prev.lastModified);
           const mergedTs = Math.max(lastModified, prev.lastModified);
           await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: merged, lastModified: mergedTs }));

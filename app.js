@@ -174,7 +174,7 @@ async function syncSave() {
     const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: syncCode, data, lastModified: ts })
+      body: JSON.stringify({ code: syncCode, data, lastModified: ts, knownServerTs: getLocalTs() })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const json = await r.json();
