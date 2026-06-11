@@ -22,6 +22,37 @@ function diffDays(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
+function mergeData(a, aTs, b, bTs) {
+  const [newer, older] = bTs >= aTs ? [b, a] : [a, b];
+
+  const result = {
+    cycleLength:    newer.cycleLength    ?? older.cycleLength,
+    periodLength:   newer.periodLength   ?? older.periodLength,
+    fertileMethod:  newer.fertileMethod  ?? older.fertileMethod,
+    intimateIcon:   newer.intimateIcon   ?? older.intimateIcon,
+    notifications:  newer.notifications  ?? older.notifications,
+  };
+
+  // 날짜 배열: 합집합
+  for (const key of ['intimateDates', 'exerciseDates', 'gameDates']) {
+    result[key] = [...new Set([...(a[key] || []), ...(b[key] || [])])].sort();
+  }
+
+  // 날짜 키 객체: 같은 날 충돌 시 newer 우선
+  for (const key of ['intimateCounts', 'memos', 'memoColors']) {
+    result[key] = { ...(older[key] || {}), ...(newer[key] || {}) };
+  }
+
+  // cycles: startDate 기준 병합, 같은 날 충돌 시 newer 우선
+  const cycleMap = new Map();
+  for (const c of [...(older.cycles || []), ...(newer.cycles || [])]) {
+    cycleMap.set(c.startDate, c);
+  }
+  result.cycles = [...cycleMap.values()].sort((x, y) => x.startDate.localeCompare(y.startDate));
+
+  return result;
+}
+
 // "HH:MM" KST → UTC 분 (0~1439)
 function kstTimeToUtcMinutes(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
@@ -79,8 +110,11 @@ export default {
       const existing = await env.SUBSCRIPTIONS.get(key);
       if (existing) {
         const prev = JSON.parse(existing);
-        if (prev.lastModified > lastModified) {
-          return res({ conflict: true, data: prev.data, lastModified: prev.lastModified });
+        if (prev.lastModified !== lastModified) {
+          const merged = mergeData(data, lastModified, prev.data, prev.lastModified);
+          const mergedTs = Math.max(lastModified, prev.lastModified);
+          await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: merged, lastModified: mergedTs }));
+          return res({ merged: true, data: merged, lastModified: mergedTs });
         }
       }
       await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data, lastModified }));

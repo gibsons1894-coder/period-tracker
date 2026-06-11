@@ -247,6 +247,47 @@ html, body {
   background: var(--color-bg);
 }
 
+#pullIndicator {
+  flex-shrink: 0;
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--color-text-light);
+  font-size: 13px;
+  background: var(--color-bg);
+}
+
+.pull-icon {
+  font-size: 17px;
+  display: inline-block;
+  transition: transform 0.2s, color 0.2s;
+}
+
+.pull-icon.ready {
+  color: var(--color-primary);
+  transform: rotate(180deg);
+}
+
+.pull-icon.spinning {
+  color: var(--color-primary);
+  animation: pullSpin 0.7s linear infinite;
+}
+
+.pull-text {
+  transition: color 0.2s;
+}
+
+.pull-text.ready {
+  color: var(--color-primary);
+}
+
+@keyframes pullSpin {
+  to { transform: rotate(360deg); }
+}
+
 #calendar {
   flex: 1;
   display: grid;

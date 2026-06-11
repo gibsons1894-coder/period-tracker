@@ -170,16 +170,19 @@ function scheduleSyncSave() {
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
   const ts = Date.now();
-  localStorage.setItem(SYNC_TS_KEY, ts);
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: syncCode, data, lastModified: ts })
     });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const json = await r.json();
-    if (json.conflict) {
+    if (json.merged) {
       _applyServerData(json.data, json.lastModified);
+      showToast('↕ 병합됨');
+    } else {
+      localStorage.setItem(SYNC_TS_KEY, ts);
     }
   } catch (e) {
     console.warn('syncSave failed:', e);
@@ -187,17 +190,21 @@ async function syncSave() {
 }
 
 async function syncLoad() {
-  if (!PUSH_SERVER_URL || !syncCode) return;
+  if (!PUSH_SERVER_URL || !syncCode) return false;
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/load?code=${syncCode}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const json = await r.json();
-    if (!json.data) return;
+    if (!json.data) return false;
     if (json.lastModified > getLocalTs()) {
       _applyServerData(json.data, json.lastModified);
       showToast('✓ 동기화됨');
+      return true;
     }
+    return false;
   } catch (e) {
     console.warn('syncLoad failed:', e);
+    return false;
   }
 }
 
@@ -206,9 +213,9 @@ function _applyServerData(serverData, ts) {
   data = serverData;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   localStorage.setItem(SYNC_TS_KEY, ts);
-  _isSyncing = false;
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
+  _isSyncing = false;
 }
 
 function updateSyncStatus() {
@@ -1938,15 +1945,40 @@ function selectPickerMonth(month) {
   closeMonthPicker();
 }
 
-// Touch swipe for month navigation
+// Touch swipe for month navigation + pull-to-refresh
 function initSwipe() {
   let startX = 0, startY = 0, _lpTimer = null, _calLpFired = false;
+  let _pulling = false, _pullY = 0;
+  const PULL_THRESHOLD = 68;
+  const PULL_MAX = 72;
+
   const cal = document.getElementById('calendarContainer');
+  const pullIndicator = document.getElementById('pullIndicator');
+  const pullIcon = document.getElementById('pullIndicatorIcon');
+  const pullText = document.getElementById('pullIndicatorText');
+
+  function _setPullHeight(h, animate) {
+    pullIndicator.style.transition = animate ? 'height 0.25s ease' : '';
+    pullIndicator.style.height = h + 'px';
+  }
+
+  function _resetPull(animate) {
+    _pulling = false;
+    _pullY = 0;
+    _setPullHeight(0, animate);
+    if (animate) setTimeout(() => { pullIndicator.style.transition = ''; }, 260);
+    pullIcon.className = 'pull-icon';
+    pullIcon.textContent = '↓';
+    pullText.className = 'pull-text';
+    pullText.textContent = '당겨서 동기화';
+  }
 
   cal.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     _calLpFired = false;
+    _pulling = false;
+    _pullY = 0;
     const cell = e.target.closest('.calendar-cell');
     const lpDate = cell ? cell.dataset.date : null;
     _lpTimer = setTimeout(() => {
@@ -1958,8 +1990,26 @@ function initSwipe() {
     }, 600);
   }, { passive: true });
 
-  cal.addEventListener('touchmove', () => {
+  cal.addEventListener('touchmove', e => {
     clearTimeout(_lpTimer); _lpTimer = null;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (!_calLpFired && dy > 12 && dy > Math.abs(dx) * 1.5) {
+      _pulling = true;
+      _pullY = Math.min(dy, PULL_MAX);
+      _setPullHeight(_pullY, false);
+      if (_pullY >= PULL_THRESHOLD) {
+        pullIcon.className = 'pull-icon ready';
+        pullIcon.textContent = '↺';
+        pullText.className = 'pull-text ready';
+        pullText.textContent = '놓아서 동기화';
+      } else {
+        pullIcon.className = 'pull-icon';
+        pullIcon.textContent = '↓';
+        pullText.className = 'pull-text';
+        pullText.textContent = '당겨서 동기화';
+      }
+    }
   }, { passive: true });
 
   cal.addEventListener('touchend', e => {
@@ -1968,6 +2018,29 @@ function initSwipe() {
       _calLpFired = false;
       // touchend 기준 400ms 후 리셋 (synthetic click ~300ms 흡수)
       setTimeout(() => { _suppressClick = false; }, 400);
+      return;
+    }
+    if (_pulling) {
+      const triggered = _pullY >= PULL_THRESHOLD;
+      if (triggered) {
+        pullIcon.className = 'pull-icon spinning';
+        pullIcon.textContent = '↺';
+        pullText.className = 'pull-text ready';
+        pullText.textContent = '동기화 중...';
+        _pulling = false;
+        _pullY = 0;
+        if (!syncCode) {
+          showToast('동기화 코드를 설정해주세요');
+          _resetPull(true);
+        } else {
+          syncLoad().then(updated => {
+            if (!updated) showToast('이미 최신이에요');
+            _resetPull(true);
+          });
+        }
+      } else {
+        _resetPull(true);
+      }
       return;
     }
     const dx = e.changedTouches[0].clientX - startX;
