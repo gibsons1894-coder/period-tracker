@@ -197,6 +197,7 @@ async function syncLoad() {
     const json = await r.json();
     if (!json.data) return false;
     if (json.lastModified > getLocalTs()) {
+      if (_syncTimer !== null) return false; // 로컬 변경 대기 중 — syncSave가 병합 처리
       _applyServerData(json.data, json.lastModified);
       showToast('✓ 동기화됨');
       return true;
