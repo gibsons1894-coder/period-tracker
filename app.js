@@ -174,6 +174,35 @@ function syncSaveNow() {
   syncSave();
 }
 
+// 앱이 백그라운드로 가거나 종료되기 직전, 대기 중인 메모 저장/서버 동기화를 강제로 실행
+function flushPendingChanges() {
+  // 디바운스 중이던 메모 입력을 즉시 저장 (로컬 + data 객체)
+  if (memoDebounceTimer) {
+    clearTimeout(memoDebounceTimer);
+    memoDebounceTimer = null;
+    saveMemo();
+  }
+
+  if (!PUSH_SERVER_URL || !syncCode || _isSyncing) return;
+  if (_syncTimer === null) return; // 보낼 변경사항 없음
+
+  clearTimeout(_syncTimer);
+  _syncTimer = null;
+
+  // 페이지가 곧 닫힐 수 있으므로 응답을 기다리지 않는 sendBeacon/keepalive로 전송
+  const payload = JSON.stringify({ code: syncCode, data, lastModified: Date.now(), knownServerTs: getLocalTs() });
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(`${PUSH_SERVER_URL}/data/save`, new Blob([payload], { type: 'application/json' }));
+  } else {
+    fetch(`${PUSH_SERVER_URL}/data/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(() => {});
+  }
+}
+
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
   const ts = Date.now();
@@ -2251,6 +2280,12 @@ function init() {
   // 동기화: 시작 시 로드, 이후 30초마다 체크
   setTimeout(syncLoad, 3000);
   setInterval(syncLoad, 30000);
+
+  // 앱이 백그라운드로 가거나 닫히기 직전 대기 중인 저장/동기화를 강제 실행
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingChanges();
+  });
+  window.addEventListener('pagehide', flushPendingChanges);
 
   // 뒤로가기 제스처 처리 (모달 닫기 / 다이어리→캘린더 전환)
   history.pushState(null, '');
