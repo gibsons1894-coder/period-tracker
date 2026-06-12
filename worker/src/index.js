@@ -58,6 +58,25 @@ function mergeTimedSet(newerArr = [], newerTsMap = {}, olderArr = [], olderTsMap
   return { arr: Object.keys(merged.map).sort(), ts: merged.ts };
 }
 
+const TS_MAP_KEYS = ['memoTs', 'memoColorTs', 'intimateCountTs', 'intimateDatesTs', 'exerciseDatesTs', 'gameDatesTs', 'cyclesTs'];
+
+// 기기 시계가 서로 달라도 항목별 수정 순서가 어긋나지 않도록,
+// 이전 저장본과 비교해 새로 추가/변경된 항목의 *Ts 값만 서버 시각으로 재기록한다.
+// (이전 저장본과 값이 같은, 즉 이번에 수정되지 않은 항목은 기존 서버 타임스탬프를 유지)
+function normalizeTimestamps(data, prevData, serverNow) {
+  const result = { ...data };
+  for (const tsKey of TS_MAP_KEYS) {
+    const incoming = data[tsKey] || {};
+    const prevTs = (prevData && prevData[tsKey]) || {};
+    const normalizedTs = {};
+    for (const [k, v] of Object.entries(incoming)) {
+      normalizedTs[k] = prevTs[k] === v ? v : serverNow;
+    }
+    result[tsKey] = normalizedTs;
+  }
+  return result;
+}
+
 function mergeData(a, aTs, b, bTs) {
   const [newer, older] = bTs >= aTs ? [b, a] : [a, b];
 
@@ -143,21 +162,21 @@ export default {
 
     // POST /data/save  { code, data, lastModified }
     if (request.method === 'POST' && pathname === '/data/save') {
-      const { code, data, lastModified, knownServerTs = 0 } = await request.json();
+      const { code, data, knownServerTs = 0 } = await request.json();
       if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
       const key = `sync-${code}`;
       const existing = await env.SUBSCRIPTIONS.get(key);
-      if (existing) {
-        const prev = JSON.parse(existing);
-        if (prev.lastModified > knownServerTs) {
-          const merged = mergeData(data, lastModified, prev.data, prev.lastModified);
-          const mergedTs = Math.max(lastModified, prev.lastModified);
-          await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: merged, lastModified: mergedTs }));
-          return res({ merged: true, data: merged, lastModified: mergedTs });
-        }
+      const prev = existing ? JSON.parse(existing) : null;
+      const serverNow = Date.now();
+      const normalized = normalizeTimestamps(data, prev?.data, serverNow);
+
+      if (prev && prev.lastModified > knownServerTs) {
+        const merged = mergeData(normalized, serverNow, prev.data, prev.lastModified);
+        await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: merged, lastModified: serverNow }));
+        return res({ merged: true, data: merged, lastModified: serverNow });
       }
-      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data, lastModified }));
-      return res({ ok: true });
+      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: normalized, lastModified: serverNow }));
+      return res({ data: normalized, lastModified: serverNow });
     }
 
     // GET /data/load?code=XXXXXXXXXX

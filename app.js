@@ -190,7 +190,7 @@ function flushPendingChanges() {
   _syncTimer = null;
 
   // 페이지가 곧 닫힐 수 있으므로 응답을 기다리지 않는 sendBeacon/keepalive로 전송
-  const payload = JSON.stringify({ code: syncCode, data, lastModified: Date.now(), knownServerTs: getLocalTs() });
+  const payload = JSON.stringify({ code: syncCode, data, knownServerTs: getLocalTs() });
   if (navigator.sendBeacon) {
     navigator.sendBeacon(`${PUSH_SERVER_URL}/data/save`, new Blob([payload], { type: 'application/json' }));
   } else {
@@ -205,21 +205,18 @@ function flushPendingChanges() {
 
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
-  const ts = Date.now();
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: syncCode, data, lastModified: ts, knownServerTs: getLocalTs() })
+      body: JSON.stringify({ code: syncCode, data, knownServerTs: getLocalTs() })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const json = await r.json();
-    if (json.merged) {
-      _applyServerData(json.data, json.lastModified);
-      showToast('↕ 병합됨');
-    } else {
-      localStorage.setItem(SYNC_TS_KEY, ts);
-    }
+    // 서버가 항목별 *Ts를 자신의 시각으로 재기록한 데이터를 반환하므로,
+    // 기기 시계 차이와 무관하게 항상 이 결과를 로컬에 반영해야 다음 비교가 정확해진다.
+    _applyServerData(json.data, json.lastModified);
+    if (json.merged) showToast('↕ 병합됨');
   } catch (e) {
     console.warn('syncSave failed:', e);
   } finally {
