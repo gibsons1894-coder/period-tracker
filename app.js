@@ -2270,13 +2270,14 @@ function init() {
   setTimeout(checkAndNotify, 1500);
   setTimeout(initPushSubscription, 2000);
 
-  // 동기화: 시작 시 로드, 이후 30초마다 체크
+  // 동기화: 앱 실행 시 로드 (이후 자동 폴링 없음 — 수동 동기화/포그라운드 복귀 시에만 체크)
   setTimeout(syncLoad, 3000);
-  setInterval(syncLoad, 30000);
 
-  // 앱이 백그라운드로 가거나 닫히기 직전 대기 중인 저장/동기화를 강제 실행
+  // 앱이 백그라운드로 가거나 닫히기 직전 대기 중인 저장/동기화를 강제 실행,
+  // 포그라운드로 돌아오면 서버에 새 내용이 있는지 확인
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushPendingChanges();
+    else syncLoad();
   });
   window.addEventListener('pagehide', flushPendingChanges);
 
