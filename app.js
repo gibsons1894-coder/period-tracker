@@ -205,17 +205,20 @@ function flushPendingChanges() {
 
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
+  // 응답을 받는 동안 사용자가 추가로 입력한 내용을 덮어쓰지 않도록,
+  // 전송 시점의 데이터를 스냅샷으로 남겨 응답과 비교한다.
+  const sent = JSON.parse(JSON.stringify(data));
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: syncCode, data, knownServerTs: getLocalTs() })
+      body: JSON.stringify({ code: syncCode, data: sent, knownServerTs: getLocalTs() })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const json = await r.json();
     // 서버가 항목별 *Ts를 자신의 시각으로 재기록한 데이터를 반환하므로,
     // 기기 시계 차이와 무관하게 항상 이 결과를 로컬에 반영해야 다음 비교가 정확해진다.
-    _applyServerData(json.data, json.lastModified);
+    _applyServerResponse(sent, json.data, json.lastModified);
     if (json.merged) showToast('↕ 병합됨');
   } catch (e) {
     console.warn('syncSave failed:', e);
@@ -253,6 +256,27 @@ function _applyServerData(serverData, ts) {
   localStorage.setItem(SYNC_TS_KEY, ts);
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
+  _isSyncing = false;
+}
+
+// syncSave 응답을 반영: 전송 후 사용자가 추가로 수정한 항목(현재 data가 전송 스냅샷과 달라진 항목)은
+// 서버 응답으로 덮어쓰지 않고 그대로 유지해, 응답 대기 중 입력한 내용이 사라지지 않게 한다.
+function _applyServerResponse(sent, serverData, ts) {
+  _isSyncing = true;
+  let changed = false;
+  for (const k of Object.keys(serverData)) {
+    if (JSON.stringify(data[k]) === JSON.stringify(sent[k])) {
+      if (JSON.stringify(data[k]) !== JSON.stringify(serverData[k])) changed = true;
+      data[k] = serverData[k];
+    }
+  }
+  ensureTsMaps(data);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(SYNC_TS_KEY, ts);
+  if (changed) {
+    renderCalendar(currentYear, currentMonth);
+    updateCycleInfoBar();
+  }
   _isSyncing = false;
 }
 
