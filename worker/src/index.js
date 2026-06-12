@@ -50,6 +50,14 @@ function mergeTimedMap(newerMap = {}, newerTsMap = {}, olderMap = {}, olderTsMap
   return { map: result, ts: resultTs };
 }
 
+// 날짜 토글 배열(intimateDates 등)을 항목별 토글 시각(tsMap) 기준으로 병합.
+// 양쪽 다 해당 날짜의 타임스탬프가 없는 레거시 데이터는 합집합으로 처리한다.
+function mergeTimedSet(newerArr = [], newerTsMap = {}, olderArr = [], olderTsMap = {}) {
+  const toMap = arr => Object.fromEntries(arr.map(d => [d, true]));
+  const merged = mergeTimedMap(toMap(newerArr), newerTsMap, toMap(olderArr), olderTsMap);
+  return { arr: Object.keys(merged.map).sort(), ts: merged.ts };
+}
+
 function mergeData(a, aTs, b, bTs) {
   const [newer, older] = bTs >= aTs ? [b, a] : [a, b];
 
@@ -61,9 +69,11 @@ function mergeData(a, aTs, b, bTs) {
     notifications:  newer.notifications  ?? older.notifications,
   };
 
-  // 날짜 배열: 합집합
-  for (const key of ['intimateDates', 'exerciseDates', 'gameDates']) {
-    result[key] = [...new Set([...(a[key] || []), ...(b[key] || [])])].sort();
+  // 날짜 토글 배열: 항목별 토글 시각 기준으로 병합 (삭제가 합집합으로 되살아나는 것 방지)
+  for (const [arrKey, tsKey] of [['intimateDates', 'intimateDatesTs'], ['exerciseDates', 'exerciseDatesTs'], ['gameDates', 'gameDatesTs']]) {
+    const merged = mergeTimedSet(newer[arrKey], newer[tsKey], older[arrKey], older[tsKey]);
+    result[arrKey] = merged.arr;
+    result[tsKey] = merged.ts;
   }
 
   // 날짜 키 객체: 항목별 수정 시각 기준으로 병합 (전체 블록 타임스탬프로 인한 덮어쓰기 방지)
@@ -73,12 +83,11 @@ function mergeData(a, aTs, b, bTs) {
     result[tsKey] = merged.ts;
   }
 
-  // cycles: startDate 기준 병합, 같은 날 충돌 시 newer 우선
-  const cycleMap = new Map();
-  for (const c of [...(older.cycles || []), ...(newer.cycles || [])]) {
-    cycleMap.set(c.startDate, c);
-  }
-  result.cycles = [...cycleMap.values()].sort((x, y) => x.startDate.localeCompare(y.startDate));
+  // cycles: startDate 기준, 항목별 수정 시각(cyclesTs)으로 병합 (삭제가 되살아나는 것 방지)
+  const toCycleMap = cycles => Object.fromEntries((cycles || []).map(c => [c.startDate, c]));
+  const mergedCycles = mergeTimedMap(toCycleMap(newer.cycles), newer.cyclesTs, toCycleMap(older.cycles), older.cyclesTs);
+  result.cycles = Object.values(mergedCycles.map).sort((x, y) => x.startDate.localeCompare(y.startDate));
+  result.cyclesTs = mergedCycles.ts;
 
   return result;
 }

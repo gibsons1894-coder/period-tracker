@@ -222,10 +222,7 @@ async function syncLoad() {
 function _applyServerData(serverData, ts) {
   _isSyncing = true;
   data = serverData;
-  // 레거시 데이터 호환: 날짜별 수정 시각 맵이 없으면 추가
-  data.memoTs = data.memoTs || {};
-  data.memoColorTs = data.memoColorTs || {};
-  data.intimateCountTs = data.intimateCountTs || {};
+  ensureTsMaps(data);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   localStorage.setItem(SYNC_TS_KEY, ts);
   renderCalendar(currentYear, currentMonth);
@@ -286,10 +283,7 @@ function loadData() {
   } catch {
     data = defaultData();
   }
-  // 레거시 데이터 호환: 날짜별 수정 시각 맵이 없으면 추가
-  data.memoTs = data.memoTs || {};
-  data.memoColorTs = data.memoColorTs || {};
-  data.intimateCountTs = data.intimateCountTs || {};
+  ensureTsMaps(data);
 }
 
 function defaultData() {
@@ -308,8 +302,24 @@ function defaultData() {
     memoTs: {},           // {'YYYY-MM-DD': timestamp} — memos 항목별 수정 시각 (병합용)
     memoColorTs: {},      // {'YYYY-MM-DD': timestamp} — memoColors 항목별 수정 시각 (병합용)
     intimateCountTs: {},  // {'YYYY-MM-DD': timestamp} — intimateCounts 항목별 수정 시각 (병합용)
+    intimateDatesTs: {},  // {'YYYY-MM-DD': timestamp} — intimateDates 토글 시각 (병합용)
+    exerciseDatesTs: {},  // {'YYYY-MM-DD': timestamp} — exerciseDates 토글 시각 (병합용)
+    gameDatesTs: {},      // {'YYYY-MM-DD': timestamp} — gameDates 토글 시각 (병합용)
+    cyclesTs: {},         // {'YYYY-MM-DD': timestamp} — cycles(startDate 기준) 수정 시각 (병합용)
     notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
   };
+}
+
+// 레거시 데이터 호환: 병합용 항목별 수정 시각 맵이 없으면 추가
+function ensureTsMaps(d) {
+  d.memoTs = d.memoTs || {};
+  d.memoColorTs = d.memoColorTs || {};
+  d.intimateCountTs = d.intimateCountTs || {};
+  d.intimateDatesTs = d.intimateDatesTs || {};
+  d.exerciseDatesTs = d.exerciseDatesTs || {};
+  d.gameDatesTs = d.gameDatesTs || {};
+  d.cyclesTs = d.cyclesTs || {};
+  return d;
 }
 
 function saveData() {
@@ -1064,6 +1074,7 @@ function togglePeriodStart() {
   const idx = data.cycles.findIndex(c => c.startDate === selectedDate);
   if (idx >= 0) {
     data.cycles.splice(idx, 1);
+    data.cyclesTs[selectedDate] = Date.now();
     showToast('생리 시작일이 해제되었어요');
   } else {
     // 가까운 날짜(생리 기간 + 2일 이내)에 기존 시작일이 있으면 교체 (날짜 수정)
@@ -1076,9 +1087,12 @@ function togglePeriodStart() {
       const updated = { startDate: selectedDate };
       if (old.endDate && old.endDate >= selectedDate) updated.endDate = old.endDate;
       data.cycles.splice(nearbyIdx, 1, updated);
+      data.cyclesTs[old.startDate] = Date.now();
+      data.cyclesTs[selectedDate] = Date.now();
       showToast('생리 시작일이 수정되었어요 🩸');
     } else {
       data.cycles.push({ startDate: selectedDate });
+      data.cyclesTs[selectedDate] = Date.now();
       showToast('생리 시작일이 기록되었어요 🩸');
     }
     data.cycles.sort((a, b) => a.startDate.localeCompare(b.startDate));
@@ -1103,6 +1117,7 @@ function togglePeriodEnd() {
     cycle.endDate = selectedDate;
     showToast('생리 종료일이 기록되었어요 🩸');
   }
+  data.cyclesTs[cycle.startDate] = Date.now();
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
@@ -1118,12 +1133,14 @@ function toggleIntimate() {
     if (!data.intimateCounts) data.intimateCounts = {};
     delete data.intimateCounts[selectedDate];
     data.intimateCountTs[selectedDate] = Date.now();
+    data.intimateDatesTs[selectedDate] = Date.now();
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
     if (!data.intimateCounts) data.intimateCounts = {};
     data.intimateCounts[selectedDate] = 1;
     data.intimateCountTs[selectedDate] = Date.now();
+    data.intimateDatesTs[selectedDate] = Date.now();
     showToast(`사랑한 날이 기록되었어요 ${data.intimateIcon || '💟'}`);
   }
   saveData();
@@ -1154,6 +1171,7 @@ function toggleExercise() {
     data.exerciseDates.push(selectedDate);
     showToast('운동이 기록되었어요 🏃');
   }
+  data.exerciseDatesTs[selectedDate] = Date.now();
   saveData();
   renderCalendar(currentYear, currentMonth);
   openDayModal(selectedDate);
@@ -1170,6 +1188,7 @@ function toggleGame() {
     data.gameDates.push(selectedDate);
     showToast('게임이 기록되었어요 🎮');
   }
+  data.gameDatesTs[selectedDate] = Date.now();
   saveData();
   renderCalendar(currentYear, currentMonth);
   openDayModal(selectedDate);
@@ -1634,7 +1653,8 @@ function renderCycleList() {
 
 function deleteCycle(idx) {
   if (!confirm('이 주기 기록을 삭제할까요?')) return;
-  data.cycles.splice(idx, 1);
+  const [removed] = data.cycles.splice(idx, 1);
+  if (removed) data.cyclesTs[removed.startDate] = Date.now();
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
@@ -1860,6 +1880,7 @@ function importData(file) {
       if (!parsed.cycles || !parsed.intimateDates) throw new Error('invalid');
       if (!confirm('현재 데이터가 백업 파일로 교체됩니다. 계속할까요?')) return;
       data = parsed;
+      ensureTsMaps(data);
       saveData();
       renderCalendar(currentYear, currentMonth);
       updateCycleInfoBar();
