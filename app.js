@@ -190,7 +190,7 @@ function flushPendingChanges() {
   _syncTimer = null;
 
   // 페이지가 곧 닫힐 수 있으므로 응답을 기다리지 않는 sendBeacon/keepalive로 전송
-  const payload = JSON.stringify({ code: syncCode, data, knownServerTs: getLocalTs() });
+  const payload = JSON.stringify({ code: syncCode, data, lastModified: Date.now() });
   if (navigator.sendBeacon) {
     navigator.sendBeacon(`${PUSH_SERVER_URL}/data/save`, new Blob([payload], { type: 'application/json' }));
   } else {
@@ -205,25 +205,18 @@ function flushPendingChanges() {
 
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
-  // 응답을 받는 동안 사용자가 추가로 입력한 내용을 덮어쓰지 않도록,
-  // 전송 시점의 데이터를 스냅샷으로 남겨 응답과 비교한다.
-  const sent = JSON.parse(JSON.stringify(data));
+  const ts = Date.now();
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: syncCode, data: sent, knownServerTs: getLocalTs() })
+      body: JSON.stringify({ code: syncCode, data, lastModified: ts })
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const json = await r.json();
-    // 서버가 항목별 *Ts를 자신의 시각으로 재기록한 데이터를 반환하므로,
-    // 기기 시계 차이와 무관하게 항상 이 결과를 로컬에 반영해야 다음 비교가 정확해진다.
-    _applyServerResponse(sent, json.data, json.lastModified);
-    if (json.merged) showToast('↕ 병합됨');
+    localStorage.setItem(SYNC_TS_KEY, ts);
   } catch (e) {
     console.warn('syncSave failed:', e);
   } finally {
-    // 저장이 끝났으니 다음 syncLoad가 서버 최신 데이터를 반영할 수 있게 함
     _syncTimer = null;
   }
 }
@@ -236,7 +229,7 @@ async function syncLoad() {
     const json = await r.json();
     if (!json.data) return false;
     if (json.lastModified > getLocalTs()) {
-      if (_syncTimer !== null) return false; // 로컬 변경 대기 중 — syncSave가 병합 처리
+      if (_syncTimer !== null) return false; // 로컬 변경 대기 중 — 이번 syncSave가 곧 서버를 덮어씀
       _applyServerData(json.data, json.lastModified);
       showToast('✓ 동기화됨');
       return true;
@@ -256,27 +249,6 @@ function _applyServerData(serverData, ts) {
   localStorage.setItem(SYNC_TS_KEY, ts);
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
-  _isSyncing = false;
-}
-
-// syncSave 응답을 반영: 전송 후 사용자가 추가로 수정한 항목(현재 data가 전송 스냅샷과 달라진 항목)은
-// 서버 응답으로 덮어쓰지 않고 그대로 유지해, 응답 대기 중 입력한 내용이 사라지지 않게 한다.
-function _applyServerResponse(sent, serverData, ts) {
-  _isSyncing = true;
-  let changed = false;
-  for (const k of Object.keys(serverData)) {
-    if (JSON.stringify(data[k]) === JSON.stringify(sent[k])) {
-      if (JSON.stringify(data[k]) !== JSON.stringify(serverData[k])) changed = true;
-      data[k] = serverData[k];
-    }
-  }
-  ensureTsMaps(data);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  localStorage.setItem(SYNC_TS_KEY, ts);
-  if (changed) {
-    renderCalendar(currentYear, currentMonth);
-    updateCycleInfoBar();
-  }
   _isSyncing = false;
 }
 

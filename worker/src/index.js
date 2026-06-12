@@ -22,95 +22,6 @@ function diffDays(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
-// 날짜별 맵(memos, memoColors, intimateCounts)을 항목별 수정 시각(tsMap) 기준으로 병합.
-// 양쪽 다 해당 항목의 타임스탬프가 없는 레거시 데이터는 전체 블록 기준 newer 값을 우선한다.
-function mergeTimedMap(newerMap = {}, newerTsMap = {}, olderMap = {}, olderTsMap = {}) {
-  const result = {};
-  const resultTs = {};
-  const keys = new Set([
-    ...Object.keys(newerMap), ...Object.keys(olderMap),
-    ...Object.keys(newerTsMap), ...Object.keys(olderTsMap),
-  ]);
-  for (const key of keys) {
-    const nt = newerTsMap[key] || 0;
-    const ot = olderTsMap[key] || 0;
-    if (nt === 0 && ot === 0) {
-      if (key in newerMap) result[key] = newerMap[key];
-      else if (key in olderMap) result[key] = olderMap[key];
-      continue;
-    }
-    if (nt >= ot) {
-      if (key in newerMap) result[key] = newerMap[key];
-      resultTs[key] = nt;
-    } else {
-      if (key in olderMap) result[key] = olderMap[key];
-      resultTs[key] = ot;
-    }
-  }
-  return { map: result, ts: resultTs };
-}
-
-// 날짜 토글 배열(intimateDates 등)을 항목별 토글 시각(tsMap) 기준으로 병합.
-// 양쪽 다 해당 날짜의 타임스탬프가 없는 레거시 데이터는 합집합으로 처리한다.
-function mergeTimedSet(newerArr = [], newerTsMap = {}, olderArr = [], olderTsMap = {}) {
-  const toMap = arr => Object.fromEntries(arr.map(d => [d, true]));
-  const merged = mergeTimedMap(toMap(newerArr), newerTsMap, toMap(olderArr), olderTsMap);
-  return { arr: Object.keys(merged.map).sort(), ts: merged.ts };
-}
-
-const TS_MAP_KEYS = ['memoTs', 'memoColorTs', 'intimateCountTs', 'intimateDatesTs', 'exerciseDatesTs', 'gameDatesTs', 'cyclesTs'];
-
-// 기기 시계가 서로 달라도 항목별 수정 순서가 어긋나지 않도록,
-// 이전 저장본과 비교해 새로 추가/변경된 항목의 *Ts 값만 서버 시각으로 재기록한다.
-// (이전 저장본과 값이 같은, 즉 이번에 수정되지 않은 항목은 기존 서버 타임스탬프를 유지)
-function normalizeTimestamps(data, prevData, serverNow) {
-  const result = { ...data };
-  for (const tsKey of TS_MAP_KEYS) {
-    const incoming = data[tsKey] || {};
-    const prevTs = (prevData && prevData[tsKey]) || {};
-    const normalizedTs = {};
-    for (const [k, v] of Object.entries(incoming)) {
-      normalizedTs[k] = prevTs[k] === v ? v : serverNow;
-    }
-    result[tsKey] = normalizedTs;
-  }
-  return result;
-}
-
-function mergeData(a, aTs, b, bTs) {
-  const [newer, older] = bTs >= aTs ? [b, a] : [a, b];
-
-  const result = {
-    cycleLength:    newer.cycleLength    ?? older.cycleLength,
-    periodLength:   newer.periodLength   ?? older.periodLength,
-    fertileMethod:  newer.fertileMethod  ?? older.fertileMethod,
-    intimateIcon:   newer.intimateIcon   ?? older.intimateIcon,
-    notifications:  newer.notifications  ?? older.notifications,
-  };
-
-  // 날짜 토글 배열: 항목별 토글 시각 기준으로 병합 (삭제가 합집합으로 되살아나는 것 방지)
-  for (const [arrKey, tsKey] of [['intimateDates', 'intimateDatesTs'], ['exerciseDates', 'exerciseDatesTs'], ['gameDates', 'gameDatesTs']]) {
-    const merged = mergeTimedSet(newer[arrKey], newer[tsKey], older[arrKey], older[tsKey]);
-    result[arrKey] = merged.arr;
-    result[tsKey] = merged.ts;
-  }
-
-  // 날짜 키 객체: 항목별 수정 시각 기준으로 병합 (전체 블록 타임스탬프로 인한 덮어쓰기 방지)
-  for (const [mapKey, tsKey] of [['intimateCounts', 'intimateCountTs'], ['memos', 'memoTs'], ['memoColors', 'memoColorTs']]) {
-    const merged = mergeTimedMap(newer[mapKey], newer[tsKey], older[mapKey], older[tsKey]);
-    result[mapKey] = merged.map;
-    result[tsKey] = merged.ts;
-  }
-
-  // cycles: startDate 기준, 항목별 수정 시각(cyclesTs)으로 병합 (삭제가 되살아나는 것 방지)
-  const toCycleMap = cycles => Object.fromEntries((cycles || []).map(c => [c.startDate, c]));
-  const mergedCycles = mergeTimedMap(toCycleMap(newer.cycles), newer.cyclesTs, toCycleMap(older.cycles), older.cyclesTs);
-  result.cycles = Object.values(mergedCycles.map).sort((x, y) => x.startDate.localeCompare(y.startDate));
-  result.cyclesTs = mergedCycles.ts;
-
-  return result;
-}
-
 // "HH:MM" KST → UTC 분 (0~1439)
 function kstTimeToUtcMinutes(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
@@ -162,21 +73,12 @@ export default {
 
     // POST /data/save  { code, data, lastModified }
     if (request.method === 'POST' && pathname === '/data/save') {
-      const { code, data, knownServerTs = 0 } = await request.json();
+      const { code, data, lastModified } = await request.json();
       if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
       const key = `sync-${code}`;
-      const existing = await env.SUBSCRIPTIONS.get(key);
-      const prev = existing ? JSON.parse(existing) : null;
-      const serverNow = Date.now();
-      const normalized = normalizeTimestamps(data, prev?.data, serverNow);
-
-      if (prev && prev.lastModified > knownServerTs) {
-        const merged = mergeData(normalized, serverNow, prev.data, prev.lastModified);
-        await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: merged, lastModified: serverNow }));
-        return res({ merged: true, data: merged, lastModified: serverNow });
-      }
-      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data: normalized, lastModified: serverNow }));
-      return res({ data: normalized, lastModified: serverNow });
+      const ts = lastModified ?? Date.now();
+      await env.SUBSCRIPTIONS.put(key, JSON.stringify({ data, lastModified: ts }));
+      return res({ ok: true, lastModified: ts });
     }
 
     // GET /data/load?code=XXXXXXXXXX
