@@ -186,6 +186,9 @@ async function syncSave() {
     }
   } catch (e) {
     console.warn('syncSave failed:', e);
+  } finally {
+    // 저장이 끝났으니 다음 syncLoad가 서버 최신 데이터를 반영할 수 있게 함
+    _syncTimer = null;
   }
 }
 
@@ -212,6 +215,10 @@ async function syncLoad() {
 function _applyServerData(serverData, ts) {
   _isSyncing = true;
   data = serverData;
+  // 레거시 데이터 호환: 날짜별 수정 시각 맵이 없으면 추가
+  data.memoTs = data.memoTs || {};
+  data.memoColorTs = data.memoColorTs || {};
+  data.intimateCountTs = data.intimateCountTs || {};
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   localStorage.setItem(SYNC_TS_KEY, ts);
   renderCalendar(currentYear, currentMonth);
@@ -272,6 +279,10 @@ function loadData() {
   } catch {
     data = defaultData();
   }
+  // 레거시 데이터 호환: 날짜별 수정 시각 맵이 없으면 추가
+  data.memoTs = data.memoTs || {};
+  data.memoColorTs = data.memoColorTs || {};
+  data.intimateCountTs = data.intimateCountTs || {};
 }
 
 function defaultData() {
@@ -287,6 +298,9 @@ function defaultData() {
     gameDates: [],        // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
     memoColors: {},       // {'YYYY-MM-DD': '#hexcolor'}
+    memoTs: {},           // {'YYYY-MM-DD': timestamp} — memos 항목별 수정 시각 (병합용)
+    memoColorTs: {},      // {'YYYY-MM-DD': timestamp} — memoColors 항목별 수정 시각 (병합용)
+    intimateCountTs: {},  // {'YYYY-MM-DD': timestamp} — intimateCounts 항목별 수정 시각 (병합용)
     notifications: { enabled: false, daysBefore: 1, notifyTime: '08:00' }
   };
 }
@@ -996,6 +1010,7 @@ function selectMemoColor(color) {
   } else {
     delete data.memoColors[selectedDate];
   }
+  data.memoColorTs[selectedDate] = Date.now();
   saveData();
   const mi = document.getElementById('memoInput');
   mi.style.background = color || '';
@@ -1094,11 +1109,13 @@ function toggleIntimate() {
     data.intimateDates.splice(idx, 1);
     if (!data.intimateCounts) data.intimateCounts = {};
     delete data.intimateCounts[selectedDate];
+    data.intimateCountTs[selectedDate] = Date.now();
     showToast('기록이 해제되었어요');
   } else {
     data.intimateDates.push(selectedDate);
     if (!data.intimateCounts) data.intimateCounts = {};
     data.intimateCounts[selectedDate] = 1;
+    data.intimateCountTs[selectedDate] = Date.now();
     showToast(`사랑한 날이 기록되었어요 ${data.intimateIcon || '💟'}`);
   }
   saveData();
@@ -1112,6 +1129,7 @@ function changeIntimateCount(delta) {
   const current = data.intimateCounts[selectedDate] || 1;
   const next = Math.max(1, current + delta);
   data.intimateCounts[selectedDate] = next;
+  data.intimateCountTs[selectedDate] = Date.now();
   const icon = data.intimateIcon || '💟';
   document.getElementById('toggleIntimate').textContent = `${icon} 사랑한 날 해제 · ${next}번`;
   saveData();
@@ -1157,6 +1175,7 @@ function saveMemo() {
   } else {
     delete data.memos[selectedDate];
   }
+  data.memoTs[selectedDate] = Date.now();
   saveData();
   renderCalendar(currentYear, currentMonth);
 }

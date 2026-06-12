@@ -22,6 +22,34 @@ function diffDays(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
+// 날짜별 맵(memos, memoColors, intimateCounts)을 항목별 수정 시각(tsMap) 기준으로 병합.
+// 양쪽 다 해당 항목의 타임스탬프가 없는 레거시 데이터는 전체 블록 기준 newer 값을 우선한다.
+function mergeTimedMap(newerMap = {}, newerTsMap = {}, olderMap = {}, olderTsMap = {}) {
+  const result = {};
+  const resultTs = {};
+  const keys = new Set([
+    ...Object.keys(newerMap), ...Object.keys(olderMap),
+    ...Object.keys(newerTsMap), ...Object.keys(olderTsMap),
+  ]);
+  for (const key of keys) {
+    const nt = newerTsMap[key] || 0;
+    const ot = olderTsMap[key] || 0;
+    if (nt === 0 && ot === 0) {
+      if (key in newerMap) result[key] = newerMap[key];
+      else if (key in olderMap) result[key] = olderMap[key];
+      continue;
+    }
+    if (nt >= ot) {
+      if (key in newerMap) result[key] = newerMap[key];
+      resultTs[key] = nt;
+    } else {
+      if (key in olderMap) result[key] = olderMap[key];
+      resultTs[key] = ot;
+    }
+  }
+  return { map: result, ts: resultTs };
+}
+
 function mergeData(a, aTs, b, bTs) {
   const [newer, older] = bTs >= aTs ? [b, a] : [a, b];
 
@@ -38,9 +66,11 @@ function mergeData(a, aTs, b, bTs) {
     result[key] = [...new Set([...(a[key] || []), ...(b[key] || [])])].sort();
   }
 
-  // 날짜 키 객체: 같은 날 충돌 시 newer 우선
-  for (const key of ['intimateCounts', 'memos', 'memoColors']) {
-    result[key] = { ...(older[key] || {}), ...(newer[key] || {}) };
+  // 날짜 키 객체: 항목별 수정 시각 기준으로 병합 (전체 블록 타임스탬프로 인한 덮어쓰기 방지)
+  for (const [mapKey, tsKey] of [['intimateCounts', 'intimateCountTs'], ['memos', 'memoTs'], ['memoColors', 'memoColorTs']]) {
+    const merged = mergeTimedMap(newer[mapKey], newer[tsKey], older[mapKey], older[tsKey]);
+    result[mapKey] = merged.map;
+    result[tsKey] = merged.ts;
   }
 
   // cycles: startDate 기준 병합, 같은 날 충돌 시 newer 우선
