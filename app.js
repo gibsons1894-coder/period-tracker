@@ -1030,6 +1030,7 @@ function selectMemoColor(color) {
   }
   data.memoColorTs[selectedDate] = Date.now();
   saveData();
+  syncSaveNow();
   const mi = document.getElementById('memoInput');
   mi.style.background = color || '';
   mi.style.borderColor = color || '';
@@ -1056,6 +1057,7 @@ function selectIntimateIcon(idx) {
   const icon = INTIMATE_ICONS[idx];
   data.intimateIcon = icon;
   saveData();
+  syncSaveNow();
 
   const intimateBtn = document.getElementById('toggleIntimate');
   const isActive = intimateBtn.classList.contains('active');
@@ -1098,6 +1100,7 @@ function togglePeriodStart() {
     data.cycles.sort((a, b) => a.startDate.localeCompare(b.startDate));
   }
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
   checkAndNotify();
@@ -1119,6 +1122,7 @@ function togglePeriodEnd() {
   }
   data.cyclesTs[cycle.startDate] = Date.now();
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
   updatePushServer();
@@ -1144,6 +1148,7 @@ function toggleIntimate() {
     showToast(`사랑한 날이 기록되었어요 ${data.intimateIcon || '💟'}`);
   }
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   openDayModal(selectedDate);
 }
@@ -1158,6 +1163,7 @@ function changeIntimateCount(delta) {
   const icon = data.intimateIcon || '💟';
   document.getElementById('toggleIntimate').textContent = `${icon} 사랑한 날 해제 · ${next}번`;
   saveData();
+  syncSaveNow();
 }
 
 function toggleExercise() {
@@ -1173,6 +1179,7 @@ function toggleExercise() {
   }
   data.exerciseDatesTs[selectedDate] = Date.now();
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   openDayModal(selectedDate);
 }
@@ -1190,6 +1197,7 @@ function toggleGame() {
   }
   data.gameDatesTs[selectedDate] = Date.now();
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   openDayModal(selectedDate);
 }
@@ -1656,6 +1664,7 @@ function deleteCycle(idx) {
   const [removed] = data.cycles.splice(idx, 1);
   if (removed) data.cyclesTs[removed.startDate] = Date.now();
   saveData();
+  syncSaveNow();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
   renderStatsModal();
