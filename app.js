@@ -167,6 +167,13 @@ function scheduleSyncSave() {
   _syncTimer = setTimeout(syncSave, 2000);
 }
 
+// 디바운스를 건너뛰고 즉시 서버에 저장 (예: 모달을 닫아 편집이 끝난 시점)
+function syncSaveNow() {
+  if (!PUSH_SERVER_URL || !syncCode || _isSyncing) return;
+  clearTimeout(_syncTimer);
+  syncSave();
+}
+
 async function syncSave() {
   if (!PUSH_SERVER_URL || !syncCode) return;
   const ts = Date.now();
@@ -993,6 +1000,7 @@ function _closeModal(id, callback) {
 function closeDayModal() {
   clearTimeout(memoDebounceTimer);
   saveMemo();
+  syncSaveNow();
   _closeModal('dayModal', () => {
     document.getElementById('iconPicker').classList.add('hidden');
     const mi = document.getElementById('memoInput');
