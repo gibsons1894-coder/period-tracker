@@ -17,6 +17,7 @@ let selectedDate = null;
 let data = {};
 let _pushSubscription = null;
 let memoDebounceTimer = null;
+let _memoOriginalText = '';
 
 const STORAGE_KEY = 'periodTrackerData_v1';
 
@@ -1002,6 +1003,7 @@ function openDayModal(dateStr) {
   // Memo
   const memoInput = document.getElementById('memoInput');
   memoInput.value = data.memos[dateStr] || '';
+  _memoOriginalText = memoInput.value;
 
   // 색상 피커
   const mcp = document.getElementById('memoColorPicker');
@@ -1031,8 +1033,12 @@ function _closeModal(id, callback) {
 
 function closeDayModal() {
   clearTimeout(memoDebounceTimer);
-  saveMemo();
-  syncSaveNow();
+  // 메모를 실제로 수정한 경우에만 저장 + 서버 동기화 (그냥 열고 닫기만 한 경우는 건너뜀)
+  const memoChanged = document.getElementById('memoInput').value.trim() !== _memoOriginalText;
+  if (memoChanged) {
+    saveMemo();
+    syncSaveNow();
+  }
   _closeModal('dayModal', () => {
     document.getElementById('iconPicker').classList.add('hidden');
     const mi = document.getElementById('memoInput');
