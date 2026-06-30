@@ -497,6 +497,7 @@ html, body {
 }
 
 .memo-preview {
+  position: relative;
   font-size: 10px;
   line-height: 1.35;
   color: #333;
@@ -1103,6 +1104,18 @@ html, body {
   transition: background 0.2s, border-color 0.15s;
 }
 #memoInput:focus { border-color: var(--color-primary); }
+
+/* 상대방이 새로 작성/수정한 메모 표시 */
+.memo-new-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff3b5c;
+  box-shadow: 0 0 0 1.5px #fff;
+}
 
 /* 캘린더 메모 형광펜 하이라이트 */
 .memo-preview-hl {

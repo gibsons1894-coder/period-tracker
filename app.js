@@ -18,6 +18,7 @@ let data = {};
 let _pushSubscription = null;
 let memoDebounceTimer = null;
 let _memoOriginalText = '';
+let _newMemoDates = new Set(); // 상대방이 변경한 메모가 있는 날짜
 
 const STORAGE_KEY = 'periodTrackerData_v1';
 
@@ -244,6 +245,11 @@ async function syncLoad() {
 
 function _applyServerData(serverData, ts) {
   _isSyncing = true;
+  const prevMemos = data.memos || {};
+  const nextMemos = serverData.memos || {};
+  Object.keys(nextMemos).forEach(d => {
+    if (nextMemos[d] && nextMemos[d] !== prevMemos[d]) _newMemoDates.add(d);
+  });
   data = serverData;
   ensureTsMaps(data);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -725,6 +731,11 @@ function renderCalendar(year, month) {
         m.style.color = getContrastColor(mc);
         m.classList.add('memo-preview-hl');
       }
+      if (_newMemoDates.has(dateStr)) {
+        const dot = document.createElement('span');
+        dot.className = 'memo-new-dot';
+        m.appendChild(dot);
+      }
       ind.appendChild(m);
     }
 
@@ -881,6 +892,11 @@ function renderDiary(year, month, forceScrollDate = null) {
 // ── Day modal ──────────────────────────────────────────
 function openDayModal(dateStr) {
   selectedDate = dateStr;
+  if (_newMemoDates.has(dateStr)) {
+    _newMemoDates.delete(dateStr);
+    const cell = document.querySelector(`.calendar-cell[data-date="${dateStr}"] .memo-new-dot`);
+    if (cell) cell.remove();
+  }
 
   // Cancel any in-progress close animation so re-open works cleanly
   const _dm = document.getElementById('dayModal');
@@ -2277,7 +2293,7 @@ function init() {
   setTimeout(initPushSubscription, 2000);
 
   // 동기화: 앱 실행 시 로드 (이후 자동 폴링 없음 — 수동 동기화/포그라운드 복귀 시에만 체크)
-  setTimeout(syncLoad, 3000);
+  syncLoad();
 
   // 앱이 백그라운드로 가거나 닫히기 직전 대기 중인 저장/동기화를 강제 실행,
   // 포그라운드로 돌아오면 서버에 새 내용이 있는지 확인
