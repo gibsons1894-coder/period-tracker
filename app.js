@@ -436,6 +436,7 @@ function defaultData() {
     gameDates: [],        // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
     anniversaries: [],    // [{id, label, calendarType:'solar'|'lunar', month, day, leap, sourceDate}]
+    coupleStartDate: null, // 'YYYY-MM-DD' — 커플 디데이 기준일 (100일/1주년 등 계산)
     memoColors: {},       // {'YYYY-MM-DD': '#hexcolor'}
     memoTs: {},           // {'YYYY-MM-DD': timestamp} — memos 항목별 수정 시각 (병합용)
     memoColorTs: {},      // {'YYYY-MM-DD': timestamp} — memoColors 항목별 수정 시각 (병합용)
@@ -680,34 +681,43 @@ function getOvulationInfo() {
 // ── Cycle info bar ─────────────────────────────────────
 function updateCycleInfoBar() {
   const el = document.getElementById('cycleStatus');
-  if (!data.cycles.length) {
-    el.textContent = '달력에서 생리 시작일을 탭해서 기록하세요';
-    el.style.color = '#aaa';
-    return;
-  }
-  el.style.color = '';
-
-  const periodInfo = getNextPeriodInfo();
-  const ovInfo = getOvulationInfo();
   const parts = [];
 
-  if (periodInfo) {
-    if (periodInfo.type === 'inPeriod') parts.push(`🩸 생리 중 D+${periodInfo.day}`);
-    else if (periodInfo.type === 'upcoming') {
-      if (periodInfo.days === 0) parts.push('🩸 오늘 생리 예정');
-      else parts.push(`🩸 생리까지 ${periodInfo.days}일`);
-    } else if (periodInfo.type === 'overdue') {
-      parts.push(`🩸 생리 ${periodInfo.days}일 지남`);
+  if (data.cycles.length) {
+    const periodInfo = getNextPeriodInfo();
+    const ovInfo = getOvulationInfo();
+
+    if (periodInfo) {
+      if (periodInfo.type === 'inPeriod') parts.push(`🩸 생리 중 D+${periodInfo.day}`);
+      else if (periodInfo.type === 'upcoming') {
+        if (periodInfo.days === 0) parts.push('🩸 오늘 생리 예정');
+        else parts.push(`🩸 생리까지 ${periodInfo.days}일`);
+      } else if (periodInfo.type === 'overdue') {
+        parts.push(`🩸 생리 ${periodInfo.days}일 지남`);
+      }
+    }
+
+    if (ovInfo) {
+      if (ovInfo.days === 0) parts.push('🌸 오늘 배란일');
+      else if (ovInfo.days > 0 && ovInfo.days <= 7) parts.push(`🌸 배란까지 ${ovInfo.days}일`);
+      else if (ovInfo.days < 0 && ovInfo.days >= -5) parts.push('💙 가임기 중');
     }
   }
 
-  if (ovInfo) {
-    if (ovInfo.days === 0) parts.push('🌸 오늘 배란일');
-    else if (ovInfo.days > 0 && ovInfo.days <= 7) parts.push(`🌸 배란까지 ${ovInfo.days}일`);
-    else if (ovInfo.days < 0 && ovInfo.days >= -5) parts.push('💙 가임기 중');
+  const coupleInfo = getNextCoupleMilestoneInfo();
+  if (coupleInfo) {
+    parts.push(coupleInfo.days === 0
+      ? `🎉 오늘 ${coupleInfo.label}`
+      : `💜 ${coupleInfo.label}까지 ${coupleInfo.days}일`);
   }
 
-  el.textContent = parts.join('  ·  ') || '주기 정보 계산 중...';
+  if (!parts.length) {
+    el.textContent = '달력에서 생리 시작일을 탭해서 기록하세요';
+    el.style.color = '#aaa';
+  } else {
+    el.style.color = '';
+    el.textContent = parts.join('  ·  ');
+  }
 }
 
 // ── Calendar rendering ─────────────────────────────────
@@ -720,6 +730,7 @@ function renderCalendar(year, month) {
 
   const today = toDateStr(new Date());
   const anniversaryMap = getAnniversaryMapForMonth(year, month);
+  const coupleMilestoneMap = getCoupleMilestoneMapForMonth(year, month);
   const actualPeriod = getActualPeriodDays();
   const predictedPeriod = getPredictedPeriodDays();
   const intimate = new Set(data.intimateDates);
@@ -773,6 +784,7 @@ function renderCalendar(year, month) {
     const classes = ['calendar-cell'];
     if (dateStr === today) classes.push('today');
     if (isKoreanHoliday(dateStr)) classes.push('holiday');
+    if (coupleMilestoneMap.has(dateStr)) classes.push('cell-milestone');
 
     if (actualPeriod.has(dateStr)) {
       classes.push('period');
@@ -820,6 +832,10 @@ function renderCalendar(year, month) {
     if (exercise.has(dateStr)) activityList.push({ icon: '🏃', redBg: false });
     if (game.has(dateStr))     activityList.push({ icon: '🎮', redBg: false });
     if (anniversaryMap.has(dateStr)) activityList.push({ icon: '🎂', redBg: false });
+    if (coupleMilestoneMap.has(dateStr)) {
+      const isYear = coupleMilestoneMap.get(dateStr).some(m => m.type === 'year');
+      activityList.push({ icon: isYear ? '💍' : '🎉', redBg: false });
+    }
 
     if (activityList.length > 0) {
       const wrap = document.createElement('div');
@@ -892,6 +908,7 @@ function renderDiary(year, month, forceScrollDate = null) {
   const exercise = new Set(data.exerciseDates || []);
   const game     = new Set(data.gameDates || []);
   const anniversaryMap = getAnniversaryMapForMonth(year, month);
+  const coupleMilestoneMap = getCoupleMilestoneMapForMonth(year, month);
 
   for (let day = 1; day <= totalDays; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -901,11 +918,12 @@ function renderDiary(year, month, forceScrollDate = null) {
     const holidayName = getHolidayName(dateStr);
     const memo       = data.memos[dateStr] || '';
     const anniversaries = anniversaryMap.get(dateStr) || [];
+    const coupleMilestones = coupleMilestoneMap.get(dateStr) || [];
     const hasActivity = intimate.has(dateStr) || exercise.has(dateStr) || game.has(dateStr);
     const hasPeriod   = actualPeriod.has(dateStr) || predictedPeriod.has(dateStr);
     const hasFertile  = fertile.has(dateStr) || ovulation.has(dateStr);
     const memoColor   = (data.memoColors || {})[dateStr] || null;
-    const hasContent  = memo || hasActivity || hasPeriod || hasFertile || anniversaries.length > 0;
+    const hasContent  = memo || hasActivity || hasPeriod || hasFertile || anniversaries.length > 0 || coupleMilestones.length > 0;
     const isCompact   = !hasContent && !isToday && !holidayName;
 
     const card = document.createElement('div');
@@ -950,6 +968,7 @@ function renderDiary(year, month, forceScrollDate = null) {
     if (exercise.has(dateStr)) meta.appendChild(_chip('🏃 운동', 'chip-activity'));
     if (game.has(dateStr))     meta.appendChild(_chip('🎮 게임', 'chip-activity'));
     anniversaries.forEach(a => meta.appendChild(_chip('🎂 ' + a.label, 'chip-anniversary')));
+    coupleMilestones.forEach(m => meta.appendChild(_chip((m.type === 'year' ? '💍 ' : '🎉 ') + m.label, 'chip-anniversary')));
 
     // 공휴일 이름 — width:100% 로 항상 단독 줄
     if (holidayName) {
@@ -1562,14 +1581,19 @@ function renderDayModalAnniversaries(dateStr) {
   const box = document.getElementById('modalAnniversaryChips');
   if (!box) return;
   const list = getAnniversariesForDate(dateStr);
-  if (!list.length) {
+  const milestones = getCoupleMilestonesForDate(dateStr);
+  if (!list.length && !milestones.length) {
     box.innerHTML = '';
     box.classList.add('hidden');
     return;
   }
-  box.innerHTML = list.map(a =>
+  const listHtml = list.map(a =>
     `<span class="anniv-chip anniv-chip-registered">🎂 ${a.label}<button class="anniv-chip-remove" onclick="removeAnniversary('${a.id}')" aria-label="삭제">✕</button></span>`
   ).join('');
+  const milestoneHtml = milestones.map(m =>
+    `<span class="anniv-chip anniv-chip-registered">${m.type === 'year' ? '💍' : '🎉'} ${m.label}</span>`
+  ).join('');
+  box.innerHTML = listHtml + milestoneHtml;
   box.classList.remove('hidden');
 }
 
@@ -1594,6 +1618,105 @@ function renderAnniversaryList() {
         <button class="cycle-delete-btn" onclick="removeAnniversary('${a.id}')">✕</button>
       </div>`;
   }).join('');
+}
+
+// ── 커플 기념일 (디데이) ─────────────────────────────────
+const COUPLE_DAY_MILESTONES = [
+  100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
+  2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900, 3000
+];
+const COUPLE_YEAR_MILESTONES = Array.from({ length: 100 }, (_, i) => i + 1); // 1주년~100주년, 매년 계속 표시
+
+function getCoupleMilestoneDate(count, type) {
+  const start = data.coupleStartDate;
+  if (!start) return null;
+  if (type === 'day') return addDays(start, count - 1);
+  // 연 단위: 매년 반복 기념일과 동일하게 양력 기준, 2/29 등은 그 해 말일로 보정
+  const d = fromDateStr(start);
+  const y = d.getFullYear() + count;
+  const m = d.getMonth() + 1;
+  const maxDay = new Date(y, m, 0).getDate();
+  const day = Math.min(d.getDate(), maxDay);
+  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getAllCoupleMilestones() {
+  if (!data.coupleStartDate) return [];
+  const list = [];
+  COUPLE_DAY_MILESTONES.forEach(n => list.push({ label: `${n}일`, dateStr: getCoupleMilestoneDate(n, 'day'), count: n, type: 'day' }));
+  COUPLE_YEAR_MILESTONES.forEach(n => list.push({ label: `${n}주년`, dateStr: getCoupleMilestoneDate(n, 'year'), count: n, type: 'year' }));
+  return list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+}
+
+function getCoupleMilestoneMapForMonth(year, month) {
+  const map = new Map();
+  if (!data.coupleStartDate) return map;
+  const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+  getAllCoupleMilestones().forEach(m => {
+    if (!m.dateStr.startsWith(prefix)) return;
+    if (!map.has(m.dateStr)) map.set(m.dateStr, []);
+    map.get(m.dateStr).push(m);
+  });
+  return map;
+}
+
+function getCoupleMilestonesForDate(dateStr) {
+  const year = parseInt(dateStr.slice(0, 4), 10);
+  const month = parseInt(dateStr.slice(5, 7), 10) - 1;
+  return getCoupleMilestoneMapForMonth(year, month).get(dateStr) || [];
+}
+
+function getNextCoupleMilestoneInfo() {
+  if (!data.coupleStartDate) return null;
+  const today = toDateStr(new Date());
+  const upcoming = getAllCoupleMilestones().filter(m => m.dateStr >= today);
+  if (!upcoming.length) return null;
+  const next = upcoming[0];
+  return { label: next.label, days: diffDays(today, next.dateStr), dateStr: next.dateStr };
+}
+
+let _coupleListExpanded = false;
+const COUPLE_LIST_PREVIEW_COUNT = 4;
+
+function toggleCoupleMilestoneList() {
+  _coupleListExpanded = !_coupleListExpanded;
+  renderCoupleMilestoneList();
+}
+
+function renderCoupleMilestoneList() {
+  const container = document.getElementById('coupleMilestoneList');
+  if (!container) return;
+  if (!data.coupleStartDate) {
+    container.innerHTML = '<div class="no-data-hint">시작일을 설정하면 100일, 1주년 등 기념일까지<br>며칠 남았는지 알려드려요.</div>';
+    return;
+  }
+  const today = toDateStr(new Date());
+  const list = getAllCoupleMilestones();
+  const firstUpcomingIdx = Math.max(0, list.findIndex(m => m.dateStr >= today));
+  const visibleList = _coupleListExpanded
+    ? list
+    : list.slice(firstUpcomingIdx, firstUpcomingIdx + COUPLE_LIST_PREVIEW_COUNT);
+
+  const itemsHtml = visibleList.map(m => {
+    const d = diffDays(today, m.dateStr);
+    const dLabel = d === 0 ? 'D-DAY' : d > 0 ? `D-${d}` : `${-d}일 지남`;
+    return `
+      <div class="cycle-item">
+        <div class="cycle-item-body">
+          <div class="cycle-item-top">
+            <span class="cycle-item-date">${m.type === 'year' ? '💍' : '🎉'} ${m.label}</span>
+            <span class="cycle-length-badge${d < 0 ? ' current' : ''}">${dLabel}</span>
+          </div>
+          <div class="cycle-item-info">${m.dateStr}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const toggleHtml = list.length > COUPLE_LIST_PREVIEW_COUNT
+    ? `<button type="button" class="couple-list-toggle" onclick="toggleCoupleMilestoneList()">${_coupleListExpanded ? '접기' : `전체 보기 (${list.length}개)`}</button>`
+    : '';
+
+  container.innerHTML = itemsHtml + toggleHtml;
 }
 
 // ── Stats modal ────────────────────────────────────────
@@ -1954,9 +2077,12 @@ function openSettings() {
   document.getElementById('notifyTime').value = data.notifications.notifyTime ?? '08:00';
   const method = data.fertileMethod || 'standard';
   document.querySelectorAll('input[name="fertileMethod"]').forEach(r => { r.checked = r.value === method; });
+  document.getElementById('coupleStartDate').value = data.coupleStartDate || '';
   updateNotifStatus();
   updateSyncStatus();
   renderAnniversaryList();
+  _coupleListExpanded = false;
+  renderCoupleMilestoneList();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
 
@@ -1977,11 +2103,15 @@ function saveSettings() {
   const selectedMethod = document.querySelector('input[name="fertileMethod"]:checked');
   if (selectedMethod) data.fertileMethod = selectedMethod.value;
 
+  const csd = document.getElementById('coupleStartDate').value;
+  data.coupleStartDate = csd || null;
+
   saveData();
   renderCalendar(currentYear, currentMonth);
   updateCycleInfoBar();
   updateLegend();
   updatePushServer();
+  renderCoupleMilestoneList();
 }
 
 function renderCycleList() {
@@ -2561,7 +2691,7 @@ function init() {
   document.getElementById('memoInput').addEventListener('input', updateMemoAnniversaryChips);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
-  ['cycleLength', 'periodLength', 'notifyDaysBefore', 'notifyTime'].forEach(id => {
+  ['cycleLength', 'periodLength', 'notifyDaysBefore', 'notifyTime', 'coupleStartDate'].forEach(id => {
     document.getElementById(id).addEventListener('change', saveSettings);
   });
   document.querySelectorAll('input[name="fertileMethod"]').forEach(r => {
