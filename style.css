@@ -217,6 +217,52 @@ html, body {
   letter-spacing: -0.1px;
 }
 
+.cycle-status-sep {
+  margin: 0 6px;
+  opacity: 0.5;
+}
+
+.couple-dday-badge {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.couple-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.92);
+  background: #333;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 7px 12px;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 20;
+}
+
+.couple-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #333;
+}
+
+.couple-tooltip.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+}
+
 /* ── Week Day Labels ── */
 #weekDays {
   display: grid;

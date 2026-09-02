@@ -678,6 +678,14 @@ function getOvulationInfo() {
   return null;
 }
 
+function getCoupleDDayInfo() {
+  if (!data.coupleStartDate) return null;
+  const today = toDateStr(new Date());
+  const days = diffDays(data.coupleStartDate, today) + 1;
+  if (days < 1) return null;
+  return { days };
+}
+
 // ── Cycle info bar ─────────────────────────────────────
 function updateCycleInfoBar() {
   const el = document.getElementById('cycleStatus');
@@ -704,20 +712,39 @@ function updateCycleInfoBar() {
     }
   }
 
-  const coupleInfo = getNextCoupleMilestoneInfo();
-  if (coupleInfo) {
-    parts.push(coupleInfo.days === 0
-      ? `🎉 오늘 ${coupleInfo.label}`
-      : `💜 ${coupleInfo.label}까지 ${coupleInfo.days}일`);
-  }
+  const coupleDday = getCoupleDDayInfo();
 
-  if (!parts.length) {
+  if (!parts.length && !coupleDday) {
+    el.innerHTML = '';
     el.textContent = '달력에서 생리 시작일을 탭해서 기록하세요';
     el.style.color = '#aaa';
-  } else {
-    el.style.color = '';
-    el.textContent = parts.join('  ·  ');
+    return;
   }
+
+  el.style.color = '';
+  let html = parts.map(p => `<span>${p}</span>`).join('<span class="cycle-status-sep">·</span>');
+
+  if (coupleDday) {
+    const coupleInfo = getNextCoupleMilestoneInfo();
+    const tooltipText = coupleInfo
+      ? (coupleInfo.days === 0 ? `🎉 오늘 ${coupleInfo.label}` : `다음 기념일 ${coupleInfo.label}까지 ${coupleInfo.days}일`)
+      : '';
+    if (html) html += '<span class="cycle-status-sep">·</span>';
+    html += `<span class="couple-dday-badge" onclick="toggleCoupleTooltip(event)">💜 D+${coupleDday.days}`
+      + (tooltipText ? `<span class="couple-tooltip" id="coupleTooltip">${tooltipText}</span>` : '')
+      + `</span>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleCoupleTooltip(e) {
+  e.stopPropagation();
+  const tooltip = document.getElementById('coupleTooltip');
+  if (!tooltip) return;
+  const willShow = !tooltip.classList.contains('show');
+  document.querySelectorAll('.couple-tooltip.show').forEach(t => t.classList.remove('show'));
+  if (willShow) tooltip.classList.add('show');
 }
 
 // ── Calendar rendering ─────────────────────────────────
@@ -2674,6 +2701,9 @@ function init() {
   document.getElementById('nextMonth').addEventListener('click', nextMonth);
   document.getElementById('monthTitle').addEventListener('click', openMonthPicker);
   document.getElementById('pickerBackdrop').addEventListener('click', closeMonthPicker);
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.couple-tooltip.show').forEach(t => t.classList.remove('show'));
+  });
   document.getElementById('pickerPrevYear').addEventListener('click', () => { pickerYear--; renderMonthPicker(); });
   document.getElementById('pickerNextYear').addEventListener('click', () => { pickerYear++; renderMonthPicker(); });
   document.getElementById('diaryBtn').addEventListener('click', toggleDiaryMode);
