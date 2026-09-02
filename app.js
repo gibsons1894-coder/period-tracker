@@ -18,6 +18,11 @@ let data = {};
 let _pushSubscription = null;
 let memoDebounceTimer = null;
 let _memoOriginalText = '';
+let _pendingAnniversaryLabel = null;
+let _pendingCalType = 'solar';
+let _pendingLunarMonth = 1;
+let _pendingLunarDay = 1;
+let _pendingLunarLeap = false;
 let _newMemoDates = new Set(); // 상대방이 변경한 메모가 있는 날짜
 
 const STORAGE_KEY = 'periodTrackerData_v1';
@@ -129,6 +134,109 @@ function getHolidayName(dateStr) {
 function isKoreanHoliday(dateStr) {
   return getHolidayName(dateStr) !== null;
 }
+
+// ── 음력 ⇄ 양력 변환 (1900~2100) ─────────────────────────
+const LUNAR_INFO = [
+0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+0x06ca0,0x0b550,0x15355,0x04da0,0x0a5d0,0x14573,0x052d0,0x0a9a8,0x0e950,0x06aa0,
+0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b5a0,0x195a6,
+0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,
+0x0d520
+];
+const LUNAR_BASE_YEAR = 1900;
+
+// 표준 음력 변환 알고리즘은 극히 드물게(신월 발생 시각이 한국·중국 시간대 경계에
+// 걸치는 해) 한국 공식(KASI) 음력과 하루 어긋난다. 이 파일의 YEAR_HOLIDAYS(설날/
+// 추석/부처님오신날, KASI 기준)로 검증해 발견된 어긋남만 보정한다.
+const LUNAR_KR_DAY_OVERRIDE = new Set(['2023-4-8', '2027-1-1', '2028-1-1']);
+
+function _lunarLeapMonth(y) { return LUNAR_INFO[y - LUNAR_BASE_YEAR] & 0xf; }
+function _lunarLeapDays(y) {
+  if (_lunarLeapMonth(y)) return (LUNAR_INFO[y - LUNAR_BASE_YEAR] & 0x10000) ? 30 : 29;
+  return 0;
+}
+function _lunarMonthDays(y, m) {
+  return (LUNAR_INFO[y - LUNAR_BASE_YEAR] & (0x10000 >> m)) ? 30 : 29;
+}
+function _lunarYearDays(y) {
+  let sum = 348;
+  for (let i = 0x8000; i > 0x8; i >>= 1) sum += (LUNAR_INFO[y - LUNAR_BASE_YEAR] & i) ? 1 : 0;
+  return sum + _lunarLeapDays(y);
+}
+
+// 음력 날짜 → 'YYYY-MM-DD' 양력 날짜
+function lunarToSolar(lYear, lMonth, lDay, isLeap) {
+  if (lYear < LUNAR_BASE_YEAR || lYear > 2100) return null;
+  let offset = 0;
+  for (let y = LUNAR_BASE_YEAR; y < lYear; y++) offset += _lunarYearDays(y);
+  const leap = _lunarLeapMonth(lYear);
+  for (let m = 1; m < lMonth; m++) {
+    offset += _lunarMonthDays(lYear, m);
+    if (m === leap) offset += _lunarLeapDays(lYear);
+  }
+  if (isLeap) offset += _lunarMonthDays(lYear, lMonth);
+  offset += lDay - 1;
+  const base = new Date(1900, 0, 31);
+  const result = new Date(base.getTime() + offset * 86400000);
+  let dateStr = toDateStr(result);
+  if (!isLeap && LUNAR_KR_DAY_OVERRIDE.has(`${lYear}-${lMonth}-${lDay}`)) {
+    dateStr = addDays(dateStr, 1);
+  }
+  return dateStr;
+}
+
+// 양력 'YYYY-MM-DD' → {year, month, day, isLeap} 음력 날짜 (근사치, 음력 선택 시 초기값 제안용)
+function solarToLunar(dateStr) {
+  const d = fromDateStr(dateStr);
+  const base = new Date(1900, 0, 31);
+  let offset = Math.round((d - base) / 86400000);
+
+  let lYear = LUNAR_BASE_YEAR, daysOfYear = 0;
+  for (; lYear < 2101 && offset > 0; lYear++) {
+    daysOfYear = _lunarYearDays(lYear);
+    offset -= daysOfYear;
+  }
+  if (offset < 0) { offset += daysOfYear; lYear--; }
+
+  const leap = _lunarLeapMonth(lYear);
+  let isLeap = false, lMonth = 1, daysOfMonth = 0;
+  for (; lMonth < 13 && offset > 0; lMonth++) {
+    if (leap > 0 && lMonth === leap + 1 && !isLeap) {
+      lMonth--; isLeap = true; daysOfMonth = _lunarLeapDays(lYear);
+    } else {
+      daysOfMonth = _lunarMonthDays(lYear, lMonth);
+    }
+    if (isLeap && lMonth === leap + 1) isLeap = false;
+    offset -= daysOfMonth;
+  }
+  if (offset === 0 && leap > 0 && lMonth === leap + 1) {
+    if (isLeap) isLeap = false; else { isLeap = true; lMonth--; }
+  }
+  if (offset < 0) { offset += daysOfMonth; lMonth--; }
+  return { year: lYear, month: lMonth, day: offset + 1, isLeap };
+}
+
+function lunarMonthLength(lYear, lMonth, isLeap) {
+  if (isLeap) return _lunarLeapDays(lYear);
+  return _lunarMonthDays(lYear, lMonth);
+}
+
 const SYNC_CODE_KEY = 'syncCode';
 const SYNC_TS_KEY   = 'syncLastModified';
 
@@ -327,6 +435,7 @@ function defaultData() {
     exerciseDates: [],    // ['YYYY-MM-DD']
     gameDates: [],        // ['YYYY-MM-DD']
     memos: {},            // {'YYYY-MM-DD': 'text'}
+    anniversaries: [],    // [{id, label, calendarType:'solar'|'lunar', month, day, leap, sourceDate}]
     memoColors: {},       // {'YYYY-MM-DD': '#hexcolor'}
     memoTs: {},           // {'YYYY-MM-DD': timestamp} — memos 항목별 수정 시각 (병합용)
     memoColorTs: {},      // {'YYYY-MM-DD': timestamp} — memoColors 항목별 수정 시각 (병합용)
@@ -341,6 +450,7 @@ function defaultData() {
 
 // 레거시 데이터 호환: 병합용 항목별 수정 시각 맵이 없으면 추가
 function ensureTsMaps(d) {
+  d.anniversaries = d.anniversaries || [];
   d.memoTs = d.memoTs || {};
   d.memoColorTs = d.memoColorTs || {};
   d.intimateCountTs = d.intimateCountTs || {};
@@ -609,6 +719,7 @@ function renderCalendar(year, month) {
   document.getElementById('monthTitle').textContent = `${year}년 ${MONTH_NAMES[month]}`;
 
   const today = toDateStr(new Date());
+  const anniversaryMap = getAnniversaryMapForMonth(year, month);
   const actualPeriod = getActualPeriodDays();
   const predictedPeriod = getPredictedPeriodDays();
   const intimate = new Set(data.intimateDates);
@@ -708,6 +819,7 @@ function renderCalendar(year, month) {
     if (intimate.has(dateStr)) activityList.push({ icon: data.intimateIcon || '💟', redBg: RED_HEARTS.has(data.intimateIcon || '💟') });
     if (exercise.has(dateStr)) activityList.push({ icon: '🏃', redBg: false });
     if (game.has(dateStr))     activityList.push({ icon: '🎮', redBg: false });
+    if (anniversaryMap.has(dateStr)) activityList.push({ icon: '🎂', redBg: false });
 
     if (activityList.length > 0) {
       const wrap = document.createElement('div');
@@ -779,6 +891,7 @@ function renderDiary(year, month, forceScrollDate = null) {
   const intimate = new Set(data.intimateDates || []);
   const exercise = new Set(data.exerciseDates || []);
   const game     = new Set(data.gameDates || []);
+  const anniversaryMap = getAnniversaryMapForMonth(year, month);
 
   for (let day = 1; day <= totalDays; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -787,11 +900,12 @@ function renderDiary(year, month, forceScrollDate = null) {
     const isToday    = dateStr === todayStr;
     const holidayName = getHolidayName(dateStr);
     const memo       = data.memos[dateStr] || '';
+    const anniversaries = anniversaryMap.get(dateStr) || [];
     const hasActivity = intimate.has(dateStr) || exercise.has(dateStr) || game.has(dateStr);
     const hasPeriod   = actualPeriod.has(dateStr) || predictedPeriod.has(dateStr);
     const hasFertile  = fertile.has(dateStr) || ovulation.has(dateStr);
     const memoColor   = (data.memoColors || {})[dateStr] || null;
-    const hasContent  = memo || hasActivity || hasPeriod || hasFertile;
+    const hasContent  = memo || hasActivity || hasPeriod || hasFertile || anniversaries.length > 0;
     const isCompact   = !hasContent && !isToday && !holidayName;
 
     const card = document.createElement('div');
@@ -835,6 +949,7 @@ function renderDiary(year, month, forceScrollDate = null) {
     }
     if (exercise.has(dateStr)) meta.appendChild(_chip('🏃 운동', 'chip-activity'));
     if (game.has(dateStr))     meta.appendChild(_chip('🎮 게임', 'chip-activity'));
+    anniversaries.forEach(a => meta.appendChild(_chip('🎂 ' + a.label, 'chip-anniversary')));
 
     // 공휴일 이름 — width:100% 로 항상 단독 줄
     if (holidayName) {
@@ -967,6 +1082,8 @@ function openDayModal(dateStr) {
     holidayEl.classList.add('hidden');
   }
 
+  renderDayModalAnniversaries(dateStr);
+
   // Period start button state
   const isCycleStart = data.cycles.some(c => c.startDate === dateStr);
   const periodBtn = document.getElementById('togglePeriod');
@@ -1020,6 +1137,8 @@ function openDayModal(dateStr) {
   const memoInput = document.getElementById('memoInput');
   memoInput.value = data.memos[dateStr] || '';
   _memoOriginalText = memoInput.value;
+  _pendingAnniversaryLabel = null;
+  updateMemoAnniversaryChips();
 
   // 색상 피커
   const mcp = document.getElementById('memoColorPicker');
@@ -1262,6 +1381,219 @@ function saveMemo() {
 function autoSaveMemo() {
   clearTimeout(memoDebounceTimer);
   memoDebounceTimer = setTimeout(saveMemo, 600);
+}
+
+// ── 기념일(매년 반복) ───────────────────────────────────
+// "OO 생일" / "OO생일" / "OO 생신" 패턴만 매칭 — 한글 음절만 허용해 HTML 특수문자가
+// 끼어들 수 없으므로 아래에서 별도 escape 없이 innerHTML에 사용해도 안전함.
+const ANNIVERSARY_RE = /[가-힣]{1,6}\s?(?:생일|생신)/g;
+
+function detectAnniversaryMatches(text) {
+  const seen = new Set();
+  const out = [];
+  for (const m of text.matchAll(ANNIVERSARY_RE)) {
+    const label = m[0].trim();
+    if (!seen.has(label)) { seen.add(label); out.push(label); }
+  }
+  return out;
+}
+
+function findAnniversaryByLabel(label) {
+  return (data.anniversaries || []).find(a => a.label === label);
+}
+
+// 특정 연도에 이 기념일이 실제로 떨어지는 양력 날짜 ('YYYY-MM-DD' | null)
+function getAnniversaryOccurrence(entry, year) {
+  if (entry.calendarType === 'solar') {
+    const maxDay = new Date(year, entry.month, 0).getDate();
+    const day = Math.min(entry.day, maxDay); // 2/29 등 윤년 전용 날짜는 2/28로 폴백
+    return `${year}-${String(entry.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  // 음력: 화면에 보이는 연도를 음력 연도로 삼아 환산. 늦은 달(11~12월)은 그 해에
+  // 해당하는 양력 날짜가 없을 수 있어 전년도 음력으로도 시도한다.
+  for (const lY of [year, year - 1]) {
+    if (lY < LUNAR_BASE_YEAR || lY > 2100) continue;
+    let leap = entry.leap;
+    if (leap && _lunarLeapMonth(lY) !== entry.month) leap = false; // 그 해엔 윤달이 없으면 평달로 폴백
+    if (entry.day > lunarMonthLength(lY, entry.month, leap)) continue;
+    const solar = lunarToSolar(lY, entry.month, entry.day, leap);
+    if (solar && solar.slice(0, 4) === String(year)) return solar;
+  }
+  return null;
+}
+
+function getAnniversaryMapForMonth(year, month) {
+  const map = new Map();
+  (data.anniversaries || []).forEach(entry => {
+    const dateStr = getAnniversaryOccurrence(entry, year);
+    if (!dateStr) return;
+    if (parseInt(dateStr.slice(5, 7), 10) !== month + 1) return;
+    if (!map.has(dateStr)) map.set(dateStr, []);
+    map.get(dateStr).push(entry);
+  });
+  return map;
+}
+
+function getAnniversariesForDate(dateStr) {
+  const year = parseInt(dateStr.slice(0, 4), 10);
+  const month = parseInt(dateStr.slice(5, 7), 10) - 1;
+  return getAnniversaryMapForMonth(year, month).get(dateStr) || [];
+}
+
+function updateMemoAnniversaryChips() {
+  const box = document.getElementById('memoAnniversaryChips');
+  if (!box) return;
+  const text = document.getElementById('memoInput').value;
+  const labels = detectAnniversaryMatches(text);
+  if (_pendingAnniversaryLabel && !labels.includes(_pendingAnniversaryLabel)) _pendingAnniversaryLabel = null;
+
+  if (!labels.length) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+
+  const chipsHtml = labels.map(label => {
+    const existing = findAnniversaryByLabel(label);
+    if (existing) {
+      return `<span class="anniv-chip anniv-chip-registered">✓ ${label} 매년 반복 등록됨<button class="anniv-chip-remove" onclick="removeAnniversary('${existing.id}')" aria-label="삭제">✕</button></span>`;
+    }
+    const active = label === _pendingAnniversaryLabel;
+    return `<button type="button" class="anniv-chip anniv-chip-add${active ? ' active' : ''}" onclick="openAnniversaryPicker('${label}')">🎂 '${label}' 매년 반복 등록하기</button>`;
+  }).join('');
+
+  let pickerHtml = '';
+  if (_pendingAnniversaryLabel) {
+    const [, sm, sd] = selectedDate.split('-');
+    const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1)
+      .map(m => `<option value="${m}" ${m === _pendingLunarMonth ? 'selected' : ''}>${m}월</option>`).join('');
+    const dayOptions = Array.from({ length: 30 }, (_, i) => i + 1)
+      .map(d => `<option value="${d}" ${d === _pendingLunarDay ? 'selected' : ''}>${d}일</option>`).join('');
+    pickerHtml = `
+      <div class="anniv-picker">
+        <div class="anniv-picker-row">
+          <button type="button" class="anniv-type-btn${_pendingCalType === 'solar' ? ' active' : ''}" onclick="setAnniversaryCalType('solar')">양력</button>
+          <button type="button" class="anniv-type-btn${_pendingCalType === 'lunar' ? ' active' : ''}" onclick="setAnniversaryCalType('lunar')">음력</button>
+        </div>
+        ${_pendingCalType === 'solar'
+          ? `<div class="anniv-picker-hint">매년 양력 ${parseInt(sm, 10)}월 ${parseInt(sd, 10)}일</div>`
+          : `<div class="anniv-picker-row">
+               <select onchange="setAnniversaryLunarField('month', this.value)">${monthOptions}</select>
+               <select onchange="setAnniversaryLunarField('day', this.value)">${dayOptions}</select>
+               <label class="anniv-leap-label"><input type="checkbox" ${_pendingLunarLeap ? 'checked' : ''} onchange="setAnniversaryLunarField('leap', this.checked)"> 윤달</label>
+             </div>`}
+        <div class="anniv-picker-actions">
+          <button type="button" class="anniv-picker-cancel" onclick="closeAnniversaryPicker()">취소</button>
+          <button type="button" class="anniv-picker-confirm" onclick="confirmAnniversary()">등록</button>
+        </div>
+      </div>`;
+  }
+
+  box.innerHTML = chipsHtml + pickerHtml;
+  box.classList.remove('hidden');
+}
+
+function openAnniversaryPicker(label) {
+  _pendingAnniversaryLabel = label;
+  _pendingCalType = 'solar';
+  const lunar = solarToLunar(selectedDate);
+  _pendingLunarMonth = lunar.month;
+  _pendingLunarDay = lunar.day;
+  _pendingLunarLeap = lunar.isLeap;
+  updateMemoAnniversaryChips();
+}
+
+function closeAnniversaryPicker() {
+  _pendingAnniversaryLabel = null;
+  updateMemoAnniversaryChips();
+}
+
+function setAnniversaryCalType(type) {
+  _pendingCalType = type;
+  updateMemoAnniversaryChips();
+}
+
+function setAnniversaryLunarField(field, value) {
+  if (field === 'month') _pendingLunarMonth = parseInt(value, 10);
+  if (field === 'day') _pendingLunarDay = parseInt(value, 10);
+  if (field === 'leap') _pendingLunarLeap = !!value;
+  updateMemoAnniversaryChips();
+}
+
+function confirmAnniversary() {
+  if (!_pendingAnniversaryLabel || !selectedDate) return;
+  const entry = {
+    id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    label: _pendingAnniversaryLabel,
+    sourceDate: selectedDate,
+  };
+  if (_pendingCalType === 'lunar') {
+    entry.calendarType = 'lunar';
+    entry.month = _pendingLunarMonth;
+    entry.day = _pendingLunarDay;
+    entry.leap = !!_pendingLunarLeap;
+  } else {
+    entry.calendarType = 'solar';
+    entry.month = parseInt(selectedDate.slice(5, 7), 10);
+    entry.day = parseInt(selectedDate.slice(8, 10), 10);
+  }
+  data.anniversaries.push(entry);
+  saveData();
+  syncSaveNow();
+  _pendingAnniversaryLabel = null;
+  updateMemoAnniversaryChips();
+  renderDayModalAnniversaries(selectedDate);
+  renderCalendar(currentYear, currentMonth);
+  renderAnniversaryList();
+  showToast('🎂 매년 반복 기념일로 등록했어요');
+}
+
+function removeAnniversary(id) {
+  data.anniversaries = (data.anniversaries || []).filter(a => a.id !== id);
+  saveData();
+  syncSaveNow();
+  updateMemoAnniversaryChips();
+  if (selectedDate) renderDayModalAnniversaries(selectedDate);
+  renderCalendar(currentYear, currentMonth);
+  renderAnniversaryList();
+}
+
+function renderDayModalAnniversaries(dateStr) {
+  const box = document.getElementById('modalAnniversaryChips');
+  if (!box) return;
+  const list = getAnniversariesForDate(dateStr);
+  if (!list.length) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+  box.innerHTML = list.map(a =>
+    `<span class="anniv-chip anniv-chip-registered">🎂 ${a.label}<button class="anniv-chip-remove" onclick="removeAnniversary('${a.id}')" aria-label="삭제">✕</button></span>`
+  ).join('');
+  box.classList.remove('hidden');
+}
+
+function renderAnniversaryList() {
+  const container = document.getElementById('anniversaryList');
+  if (!container) return;
+  const list = [...(data.anniversaries || [])].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  if (!list.length) {
+    container.innerHTML = '<div class="no-data-hint">등록된 기념일이 없어요.<br>메모에 "이름 생일"처럼 적으면 등록할 수 있어요.</div>';
+    return;
+  }
+  container.innerHTML = list.map(a => {
+    const dateLabel = a.calendarType === 'lunar'
+      ? `음력 ${a.month}월 ${a.day}일${a.leap ? ' (윤달)' : ''}`
+      : `양력 ${a.month}월 ${a.day}일`;
+    return `
+      <div class="cycle-item">
+        <div class="cycle-item-body">
+          <div class="cycle-item-top"><span class="cycle-item-date">${a.label}</span></div>
+          <div class="cycle-item-info">${dateLabel} · 매년 반복</div>
+        </div>
+        <button class="cycle-delete-btn" onclick="removeAnniversary('${a.id}')">✕</button>
+      </div>`;
+  }).join('');
 }
 
 // ── Stats modal ────────────────────────────────────────
@@ -1624,6 +1956,7 @@ function openSettings() {
   document.querySelectorAll('input[name="fertileMethod"]').forEach(r => { r.checked = r.value === method; });
   updateNotifStatus();
   updateSyncStatus();
+  renderAnniversaryList();
   document.getElementById('settingsModal').classList.remove('hidden');
 }
 
@@ -2225,6 +2558,7 @@ function init() {
   document.getElementById('toggleExercise').addEventListener('click', toggleExercise);
   document.getElementById('toggleGame').addEventListener('click', toggleGame);
   document.getElementById('memoInput').addEventListener('input', autoSaveMemo);
+  document.getElementById('memoInput').addEventListener('input', updateMemoAnniversaryChips);
 
   document.getElementById('closeSettings').addEventListener('click', closeSettings);
   ['cycleLength', 'periodLength', 'notifyDaysBefore', 'notifyTime'].forEach(id => {

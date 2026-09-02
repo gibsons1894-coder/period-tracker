@@ -81,6 +81,7 @@
       <button id="closeModal" class="close-btn" aria-label="닫기">✕</button>
     </div>
     <div class="modal-body">
+      <div id="modalAnniversaryChips" class="anniv-chip-row hidden"></div>
       <div id="modalStatus" class="modal-status"></div>
       <div id="modalActivityChips" class="modal-activity-chips hidden"></div>
       <div class="modal-actions">
@@ -114,6 +115,7 @@
           </div>
         </div>
         <textarea id="memoInput" placeholder="이 날의 메모를 입력하세요..." rows="4"></textarea>
+        <div id="memoAnniversaryChips" class="anniv-chip-row hidden"></div>
       </div>
     </div>
   </div>
@@ -196,6 +198,11 @@
           <label for="notifyTime">알림 받을 시각</label>
           <input type="time" id="notifyTime">
         </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="section-title">기념일 (매년 반복)</div>
+        <div id="anniversaryList" class="cycle-list"></div>
       </div>
 
       <div class="settings-group">

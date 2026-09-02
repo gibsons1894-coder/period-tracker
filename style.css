@@ -1855,6 +1855,7 @@ html, body {
 .chip-activity  { background: #F0F0F5; color: #555; }
 .chip-health    { background: #FFF0F5; color: var(--color-primary); }
 .chip-predicted { background: #FFF5F5; color: #F06292; }
+.chip-anniversary { background: #FFF3E0; color: #E65100; }
 
 .modal-activity-chips {
   display: flex;
@@ -1869,4 +1870,139 @@ html, body {
   border-radius: 20px;
   background: #F0F0F5;
   color: #444;
+}
+
+/* ── 기념일(매년 반복) 칩 & 등록 피커 ─────────────────── */
+.anniv-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.anniv-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.3;
+}
+
+.anniv-chip-add {
+  background: none;
+  border: 1.5px dashed #FFB74D;
+  color: #E65100;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.anniv-chip-add:active,
+.anniv-chip-add.active {
+  background: #FFF3E0;
+  border-color: #E65100;
+}
+
+.anniv-chip-registered {
+  background: #FFF3E0;
+  color: #E65100;
+  border: 1.5px solid transparent;
+}
+
+.anniv-chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+}
+.anniv-chip-remove:active { opacity: 1; }
+
+.anniv-picker {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  background: #FFF8F0;
+  border-radius: 14px;
+  border: 1.5px solid #FFE0B2;
+  animation: fadeIn 0.15s ease;
+}
+
+.anniv-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.anniv-picker-row:last-child { margin-bottom: 0; }
+
+.anniv-type-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1.5px solid #FFE0B2;
+  background: #fff;
+  color: #999;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.anniv-type-btn.active {
+  background: #E65100;
+  border-color: #E65100;
+  color: #fff;
+}
+
+.anniv-picker-hint {
+  font-size: 13px;
+  color: #666;
+  padding: 6px 2px;
+}
+
+.anniv-picker select {
+  flex: 1;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1.5px solid #FFE0B2;
+  background: #fff;
+  font-size: 13px;
+  color: #333;
+}
+
+.anniv-leap-label {
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.anniv-picker-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.anniv-picker-actions button {
+  flex: 1;
+  padding: 9px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+.anniv-picker-cancel {
+  background: #F0F0F5;
+  color: #666;
+}
+.anniv-picker-confirm {
+  background: #E65100;
+  color: #fff;
 }
