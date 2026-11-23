@@ -9,7 +9,7 @@
   const SL_KEY = 'slither_v1';
   const SIZES = [6, 7, 8, 9, 10, 11];
   const LEVEL_NAMES = { 6: '입문', 7: '쉬움', 8: '보통', 9: '어려움', 10: '고수', 11: '달인' };
-  const SAVE_MIN_INTERVAL = 60000; // 진행 중 서버 저장 최소 간격 (달력 데이터 전체를 보내므로 넉넉히)
+  const SAVE_MIN_INTERVAL = 30000; // 진행 중 서버 저장 최소 간격 (상대 화면 반영 속도 vs 저장 횟수)
   const POLL_INTERVAL = 30000;
   const PEEK_POLL_INTERVAL = 15000;
 
