@@ -2110,3 +2110,173 @@ html, body {
   background: #E65100;
   color: #fff;
 }
+
+/* ── 슬리더링크 (퍼즐) ───────────────────────────────── */
+.sl-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: var(--color-bg);
+  animation: slIn 0.18s ease;
+}
+.sl-screen.hidden { display: none; }
+@keyframes slIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.sl-inner {
+  max-width: 500px;
+  height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.sl-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.07);
+  padding: env(safe-area-inset-top) 8px 0;
+  min-height: var(--header-height);
+  flex-shrink: 0;
+}
+.sl-title { flex: 1; text-align: center; font-size: 17px; font-weight: 700; letter-spacing: -0.4px; min-width: 0; }
+.sl-sub { font-size: 12px; font-weight: 500; color: #8E8E93; margin-top: 2px; }
+.sl-header-right { min-width: 44px; display: flex; justify-content: flex-end; }
+.sl-icon-btn {
+  width: 44px; height: 44px; border: none; background: transparent; border-radius: 50%;
+  font-size: 26px; line-height: 1; color: var(--color-text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sl-icon-btn:active { background: #F0F0F0; }
+.sl-nick-btn {
+  border: none; background: #FCE4EC; color: var(--color-primary-dark);
+  font-size: 13px; font-weight: 600; padding: 7px 10px; border-radius: 16px; max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.sl-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px calc(20px + env(safe-area-inset-bottom));
+}
+.sl-note {
+  background: #fff; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #6E6E73;
+  line-height: 1.5; margin-bottom: 12px;
+}
+.sl-players { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sl-player-pill {
+  background: #fff; border-radius: 14px; padding: 6px 11px; font-size: 13px; font-weight: 600;
+}
+.sl-player-pill em { font-style: normal; color: var(--color-primary); font-size: 12px; margin-left: 2px; }
+.sl-help { font-size: 12px; color: #8E8E93; text-align: center; margin-top: 14px; line-height: 1.5; }
+
+.sl-size-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sl-size-card {
+  background: #fff; border: none; border-radius: 16px; padding: 14px 12px 12px; text-align: left;
+  cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.04); color: var(--color-text); font-family: inherit;
+}
+.sl-size-card:active { transform: scale(0.98); }
+.sl-size-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.sl-size { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.sl-level { font-size: 12px; color: #8E8E93; font-weight: 600; }
+.sl-card-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6E6E73; margin-top: 5px; }
+.sl-card-name { width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-card-row.me .sl-card-name { color: var(--color-primary-dark); font-weight: 700; }
+.sl-bar { flex: 1; height: 5px; background: #F2F2F7; border-radius: 3px; overflow: hidden; }
+.sl-bar span { display: block; height: 100%; background: #C7C7CC; border-radius: 3px; }
+.sl-card-row.me .sl-bar span { background: var(--color-primary); }
+.sl-card-cnt { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.sl-stage-list { background: #fff; border-radius: 16px; overflow: hidden; }
+.sl-stage-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+}
+.sl-stage-row:last-child { border-bottom: none; }
+.sl-stage-row:active { background: #FAFAFA; }
+.sl-stage-num {
+  width: 32px; height: 32px; border-radius: 50%; background: #F2F2F7; color: #6E6E73;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;
+}
+.sl-stage-num.cleared { background: var(--color-primary); color: #fff; }
+.sl-stage-main { flex: 1; min-width: 0; }
+.sl-stage-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.sl-chev { color: #C7C7CC; font-size: 20px; }
+.sl-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.sl-empty { font-size: 12px; color: #C7C7CC; }
+.sl-chip {
+  font-size: 12px; padding: 3px 8px; border-radius: 10px; border: none; font-family: inherit;
+  background: #F2F2F7; color: #48484A; white-space: nowrap;
+}
+.sl-chip.done.me { background: #FCE4EC; color: var(--color-primary-dark); font-weight: 600; }
+.sl-chip.playing { background: #FFF4E5; color: #B26A00; }
+.sl-chip.peekable { cursor: pointer; font-weight: 600; box-shadow: inset 0 0 0 1px #FFD59E; }
+.sl-chip.peekable:active { background: #FFE8C7; }
+.sl-chip-eye { font-weight: 500; opacity: 0.8; }
+
+.sl-play-body { display: flex; flex-direction: column; align-items: stretch; }
+.sl-others { min-height: 24px; margin-bottom: 6px; }
+.sl-others .sl-chips { justify-content: center; }
+.sl-board-wrap {
+  background: #fff; border-radius: 16px; padding: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.sl-board { display: block; width: 100%; height: auto; aspect-ratio: 1; touch-action: none; }
+.sl-dot { fill: #3A3A3C; }
+.sl-clue { font-size: 56px; font-weight: 600; text-anchor: middle; dominant-baseline: central; fill: #1C1C1E; }
+.sl-clue.ok { fill: #C7C7CC; }
+.sl-clue.err { fill: #FF3B30; }
+.sl-line { stroke: var(--color-primary); stroke-width: 13; stroke-linecap: round; }
+.sl-x { stroke: #AEAEB2; stroke-width: 4.5; stroke-linecap: round; fill: none; }
+.sl-board.readonly .sl-line { stroke: #FB8C00; }
+.sl-board.won .sl-line { stroke: #34C759; }
+.sl-peek-hidden {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 700; text-align: center; gap: 8px; padding: 20px;
+}
+.sl-peek-hidden span { font-size: 13px; font-weight: 500; color: #8E8E93; }
+.sl-tools { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.sl-tool {
+  border: none; background: #fff; border-radius: 12px; padding: 10px 16px; font-size: 14px;
+  font-weight: 600; color: var(--color-text); cursor: pointer; font-family: inherit;
+}
+.sl-tool:active { background: #EDEDED; }
+.sl-btn {
+  border: none; background: var(--color-primary); color: #fff; border-radius: 12px; padding: 11px 18px;
+  font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.sl-btn.ghost { background: #F2F2F7; color: var(--color-text); }
+
+.sl-win, .sl-dialog-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 5;
+}
+.sl-win.hidden { display: none; }
+.sl-win-card, .sl-dialog {
+  background: #fff; border-radius: 20px; padding: 24px 20px 18px; width: min(320px, 100%); text-align: center;
+  animation: pickerPop 0.2s ease;
+}
+@keyframes pickerPop { from { transform: scale(0.92); opacity: 0; } to { transform: none; opacity: 1; } }
+.sl-win-emoji { font-size: 44px; }
+.sl-win-title, .sl-dialog-title { font-size: 18px; font-weight: 800; margin-top: 6px; }
+.sl-win-sub, .sl-dialog-sub { font-size: 13px; color: #8E8E93; margin-top: 4px; }
+.sl-win-btns { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.sl-win-btns .sl-btn { flex: 1; }
+.sl-input {
+  width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; border: 1px solid var(--color-border);
+  font-size: 16px; text-align: center; font-family: inherit; user-select: text; -webkit-user-select: text;
+}
+.sl-input:focus { outline: 2px solid var(--color-primary); border-color: transparent; }
+
+/* 헤더 아이콘이 4개가 되면서 좁은 화면에서 제목이 줄바꿈되지 않도록 */
+.month-title { white-space: nowrap; min-width: 0; }
+@media (max-width: 400px) {
+  #header .header-icon-btn { width: 38px; font-size: 19px; }
+  #header .nav-btn { width: 36px; }
+  .month-title { padding: 6px 4px; font-size: 17px; }
+}
+@media (max-width: 340px) {
+  #header { padding: 0 2px; }
+  #header .header-icon-btn { width: 33px; font-size: 17px; }
+  #header .nav-btn { width: 30px; font-size: 24px; }
+  .month-title { font-size: 15px; padding: 6px 2px; }
+}
