@@ -350,7 +350,7 @@ async function syncSave() {
   }
 }
 
-async function syncLoad() {
+async function syncLoad(silent) {
   if (!PUSH_SERVER_URL || !syncCode) return false;
   try {
     const r = await fetch(`${PUSH_SERVER_URL}/data/load?code=${syncCode}`);
@@ -360,7 +360,7 @@ async function syncLoad() {
     if (json.lastModified > getLocalTs()) {
       if (_syncTimer !== null) return false; // 로컬 변경 대기 중 — 이번 syncSave가 곧 서버를 덮어씀
       _applyServerData(json.data, json.lastModified);
-      showToast('✓ 동기화됨');
+      if (!silent) showToast('✓ 동기화됨');
       return true;
     }
     return false;

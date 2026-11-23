@@ -90,36 +90,6 @@ export default {
       return res(JSON.parse(raw));
     }
 
-    // ── Slitherlink 게임 진행 (플레이어별 키라 서로 덮어쓰지 않음) ──
-    // POST /game/save  { code, playerId, record: { nickname, clears, progress, updatedAt } }
-    if (request.method === 'POST' && pathname === '/game/save') {
-      const body = await request.text();
-      if (body.length > 64 * 1024) return res({ error: 'too large' }, 413);
-      const { code, playerId, record } = JSON.parse(body);
-      if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
-      if (!/^[A-Za-z0-9]{8,24}$/.test(playerId || '')) return res({ error: 'invalid player' }, 400);
-      if (!record || typeof record !== 'object') return res({ error: 'invalid record' }, 400);
-      await env.SUBSCRIPTIONS.put(`game-${code}-p-${playerId}`, JSON.stringify({ ...record, playerId }));
-      // 플레이어 목록(인덱스) — KV list 호출 없이 조회하기 위함 (무료 플랜 list 한도 절약)
-      const idxKey = `game-${code}-index`;
-      const ids = JSON.parse((await env.SUBSCRIPTIONS.get(idxKey)) || '[]');
-      if (!ids.includes(playerId)) {
-        ids.push(playerId);
-        await env.SUBSCRIPTIONS.put(idxKey, JSON.stringify(ids.slice(-20)));
-      }
-      return res({ ok: true });
-    }
-
-    // GET /game/load?code=XXXXXXXXXX  → { players: [record, ...] }
-    if (request.method === 'GET' && pathname === '/game/load') {
-      const code = new URL(request.url).searchParams.get('code');
-      if (!code || code.length !== 10) return res({ error: 'invalid code' }, 400);
-      const ids = JSON.parse((await env.SUBSCRIPTIONS.get(`game-${code}-index`)) || '[]');
-      const raws = await Promise.all(ids.map(id => env.SUBSCRIPTIONS.get(`game-${code}-p-${id}`)));
-      const players = raws.filter(Boolean).map(r => JSON.parse(r));
-      return res({ players });
-    }
-
     return res({ error: 'not found' }, 404);
   },
 
@@ -139,7 +109,7 @@ export default {
     const { keys } = await env.SUBSCRIPTIONS.list();
 
     for (const { name } of keys) {
-      if (name.startsWith('sync-') || name.startsWith('game-')) continue;
+      if (name.startsWith('sync-')) continue;
       try {
         const raw = await env.SUBSCRIPTIONS.get(name);
         if (!raw) continue;

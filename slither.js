@@ -1,14 +1,15 @@
 // ── 슬리더링크 (퍼즐) ─────────────────────────────────────
 // 동기화 코드를 공유하는 사람끼리 각자 플레이하고 서로의 기록·진행 상황을 볼 수 있다.
-// 진행 상황은 플레이어별 서버 키(/game/save)에 저장되어 달력 데이터와 섞이지 않는다.
-// app.js의 PUSH_SERVER_URL, syncCode, showToast를 사용한다.
+// 기록·진행 상황은 달력 데이터(data.slither[playerId])에 들어가 기존 달력 동기화(/data/save)로 함께 공유된다.
+// 각자 자기 playerId 항목만 쓰고, 저장 직전에 서버 최신본을 먼저 받아 상대 기록을 덮어쓰지 않게 한다.
+// app.js의 data, STORAGE_KEY, syncCode, syncLoad, syncSave, scheduleSyncSave, flushPendingChanges, showToast를 사용한다.
 (function () {
   'use strict';
 
   const SL_KEY = 'slither_v1';
   const SIZES = [6, 7, 8, 9, 10, 11];
   const LEVEL_NAMES = { 6: '입문', 7: '쉬움', 8: '보통', 9: '어려움', 10: '고수', 11: '달인' };
-  const SAVE_MIN_INTERVAL = 30000; // 서버 저장 최소 간격 (KV 쓰기 한도 절약)
+  const SAVE_MIN_INTERVAL = 60000; // 진행 중 서버 저장 최소 간격 (달력 데이터 전체를 보내므로 넉넉히)
   const POLL_INTERVAL = 30000;
   const PEEK_POLL_INTERVAL = 15000;
 
@@ -31,6 +32,7 @@
   let lastSaveAt = 0;
   let dirty = false;
   let resetArmedAt = 0;
+  let tickTimer = null;
 
   function loadLocal() {
     let s = null;
@@ -53,7 +55,7 @@
 
   function syncOn() {
     return typeof PUSH_SERVER_URL !== 'undefined' && PUSH_SERVER_URL &&
-      typeof syncCode !== 'undefined' && !!syncCode;
+      typeof syncCode !== 'undefined' && !!syncCode && typeof data === 'object' && !!data;
   }
 
   function todayStr() {
@@ -74,6 +76,25 @@
     const d = new Date(ts);
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
+  // 클리어 기록: { d: 'YYYY-MM-DD', t: 초 } (이전 버전은 날짜 문자열만 저장)
+  function clearInfo(v) {
+    if (!v) return null;
+    if (typeof v === 'string') return { d: v, t: null };
+    return v;
+  }
+  function fmtDur(sec, long) {
+    if (sec == null) return '';
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (long) return h ? `${h}시간 ${m}분 ${s}초` : (m ? `${m}분 ${s}초` : `${s}초`);
+    return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+  }
+  function clearLabel(v) {
+    const c = clearInfo(v);
+    if (!c) return '';
+    return `${shortDate(c.d)}${c.t != null ? ` · ${fmtDur(c.t)}` : ''}`;
+  }
+
   function esc(s) {
     return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
@@ -90,6 +111,18 @@
     return { nickname: sl.nickname, clears: sl.clears, progress, updatedAt: sl.updatedAt };
   }
 
+  // 내 기록을 달력 데이터에 넣기 (로컬 저장까지)
+  function writeMyRecord() {
+    if (typeof data !== 'object' || !data) return;
+    data.slither = data.slither || {};
+    data.slither[sl.playerId] = { ...serverRecord(), playerId: sl.playerId };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* 저장 공간 부족 */ }
+  }
+  function readOthers() {
+    const all = (typeof data === 'object' && data && data.slither) || {};
+    others = Object.values(all).filter(p => p && p.playerId && p.playerId !== sl.playerId);
+  }
+
   function scheduleSave() {
     dirty = true;
     if (!syncOn() || saveTimer) return;
@@ -103,16 +136,18 @@
     saveTimer = null;
     dirty = false;
     lastSaveAt = Date.now();
-    const body = JSON.stringify({ code: syncCode, playerId: sl.playerId, record: serverRecord() });
     try {
-      if (keepalive && navigator.sendBeacon) {
-        navigator.sendBeacon(`${PUSH_SERVER_URL}/game/save`, new Blob([body], { type: 'application/json' }));
+      if (keepalive) {
+        // 앱이 닫히는 중: 기다릴 수 없으니 달력 동기화의 즉시 전송 경로를 그대로 사용
+        writeMyRecord();
+        scheduleSyncSave();
+        flushPendingChanges();
         return;
       }
-      const r = await fetch(`${PUSH_SERVER_URL}/game/save`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: !!keepalive,
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await syncLoad(true);   // 상대가 그사이 저장한 달력·게임 기록을 먼저 받아서
+      readOthers();
+      writeMyRecord();    // 내 항목만 갱신한 뒤
+      await syncSave();   // 달력 데이터 전체를 저장 (달력 동기화와 같은 경로)
     } catch (e) {
       console.warn('slither save failed:', e);
       dirty = true;
@@ -121,15 +156,9 @@
 
   async function loadOthers() {
     if (!syncOn()) { others = []; othersLoaded = true; return; }
-    try {
-      const r = await fetch(`${PUSH_SERVER_URL}/game/load?code=${syncCode}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const json = await r.json();
-      others = (json.players || []).filter(p => p && p.playerId !== sl.playerId);
-      othersLoaded = true;
-    } catch (e) {
-      console.warn('slither load failed:', e);
-    }
+    try { await syncLoad(true); } catch (e) { /* 오프라인이면 로컬 데이터로 표시 */ }
+    readOthers();
+    othersLoaded = true;
   }
 
   function startPolling() {
@@ -196,6 +225,7 @@
 
   function close() {
     leavePlay();
+    timerPause();
     flushSave(true);
     stopPolling();
     root.classList.add('hidden');
@@ -289,7 +319,7 @@
     return allPlayers().filter(p => !(excludeMe && p.me)).map(p => {
       const date = ((p.clears || {})[n] || {})[stage];
       if (date) {
-        return `<span class="sl-chip done${p.me ? ' me' : ''}">✓ ${esc(displayName(p))} · ${shortDate(date)}</span>`;
+        return `<span class="sl-chip done${p.me ? ' me' : ''}">✓ ${esc(displayName(p))} · ${clearLabel(date)}</span>`;
       }
       const prog = activeProgress(p, k);
       if (prog) {
@@ -327,20 +357,48 @@
     curStage = stage;
     const saved = sl.progress[keyOf(n, stage)];
     board = makeBoard(n, stage, saved && saved.e);
+    board.ms = (saved && saved.ms) || 0;   // 지금까지 푼 시간 (화면을 보고 있던 시간만)
+    board.segStart = null;
     go('play');
+  }
+
+  // ── 소요시간 (앱이 화면에 보이고 판을 보고 있는 동안만 흐름) ──
+  function elapsedMs() {
+    if (!board) return 0;
+    return board.ms + (board.segStart ? Date.now() - board.segStart : 0);
+  }
+  function timerResume() {
+    if (!board || board.won || board.segStart) return;
+    board.segStart = Date.now();
+    clearInterval(tickTimer);
+    tickTimer = setInterval(updateTimerText, 1000);
+    updateTimerText();
+  }
+  function timerPause() {
+    clearInterval(tickTimer);
+    tickTimer = null;
+    if (!board || !board.segStart) return;
+    board.ms += Date.now() - board.segStart;
+    board.segStart = null;
+  }
+  function updateTimerText() {
+    const el = root && root.querySelector('#slTimer');
+    if (el && board) el.textContent = `⏱ ${fmtDur(elapsedMs() / 1000)}`;
   }
 
   function leavePlay() {
     if (view !== 'play' || !board) return;
+    timerPause();
     persistBoard();
     flushSave();
   }
 
   function persistBoard() {
-    if (!board) return;
+    if (!board || board.won) return;
     const k = keyOf(board.n, board.stage);
     const any = board.edges.some(x => x !== 0);
-    if (any) sl.progress[k] = { e: edgesToStr(board.edges), t: Date.now() };
+    const ms = elapsedMs();
+    if (any || ms >= 5000) sl.progress[k] = { e: edgesToStr(board.edges), t: Date.now(), ms };
     else delete sl.progress[k];
     saveLocal();
   }
@@ -348,7 +406,8 @@
   function playHtml() {
     const n = board.n, s = board.stage;
     const cleared = (sl.clears[n] || {})[s];
-    return header(`${n}×${n} · ${s}단계`, cleared ? `${shortDate(cleared)} 클리어함` : LEVEL_NAMES[n], 'stages',
+    const sub = `${cleared ? `${clearLabel(cleared)} 클리어함` : LEVEL_NAMES[n]} · <span id="slTimer">⏱ ${fmtDur(elapsedMs() / 1000)}</span>`;
+    return header(`${n}×${n} · ${s}단계`, sub, 'stages',
       `<button class="sl-icon-btn" data-act="undo" aria-label="되돌리기">↶</button>`) +
       `<div class="sl-body sl-play-body">
         <div class="sl-others" id="slPlayOthers"></div>
@@ -374,6 +433,7 @@
     drawBoard(svg, board, false);
     renderPlayOthers();
     attachInput(svg);
+    if (!document.hidden) timerResume();
   }
 
   function drawBoard(svg, b, readonly) {
@@ -490,21 +550,29 @@
   }
 
   function onWin() {
+    timerPause();
     board.won = true;
     const n = board.n, s = board.stage;
+    const secs = Math.round(board.ms / 1000);
     sl.clears[n] = sl.clears[n] || {};
-    const first = !sl.clears[n][s];
-    if (first) sl.clears[n][s] = todayStr();
+    const prev = clearInfo(sl.clears[n][s]);
+    if (!prev) sl.clears[n][s] = { d: todayStr(), t: secs };
     delete sl.progress[keyOf(n, s)];
     saveLocal();
     dirty = true;
     flushSave();
     const hasNext = s < stageCount(n);
+    const name = esc(sl.nickname || '나');
     const win = root.querySelector('#slWin');
     win.innerHTML = `<div class="sl-win-card">
       <div class="sl-win-emoji">🎉</div>
       <div class="sl-win-title">${n}×${n} ${s}단계 클리어!</div>
-      <div class="sl-win-sub">${first ? `${shortDate(todayStr())} 기록됨` : `처음 클리어: ${shortDate(sl.clears[n][s])}`}</div>
+      <div class="sl-win-record">
+        <div><span>클리어</span><b>${name}</b></div>
+        <div><span>날짜</span><b>${shortDate(todayStr())}</b></div>
+        <div><span>소요시간</span><b>${fmtDur(secs, true)}</b></div>
+      </div>
+      ${prev ? `<div class="sl-win-sub">처음 클리어 기록: ${clearLabel(prev)}</div>` : ''}
       <div class="sl-win-btns">
         <button class="sl-btn ghost" data-act="stages">목록</button>
         ${hasNext ? `<button class="sl-btn" data-act="next">다음 단계 ›</button>` : ''}
@@ -512,6 +580,7 @@
     </div>`;
     win.classList.remove('hidden');
     root.querySelector('#slBoard').classList.add('won');
+    updateTimerText();
   }
 
   function undo() {
@@ -548,8 +617,8 @@
     const date = p && ((p.clears || {})[n] || {})[s];
     const prog = p && (p.progress || {})[keyOf(n, s)];
     let sub;
-    if (date) sub = `${shortDate(date)} 클리어`;
-    else if (prog) sub = `마지막 진행 ${relTime(prog.t)}`;
+    if (date) sub = `${clearLabel(date)} 클리어`;
+    else if (prog) sub = `마지막 진행 ${relTime(prog.t)}${prog.ms ? ` · ⏱ ${fmtDur(prog.ms / 1000)}` : ''}`;
     else sub = '진행 기록 없음';
     return header(`${esc(name)}의 진행 상황`, `${n}×${n} · ${s}단계 · ${sub}`, 'peekback',
       `<button class="sl-icon-btn" data-act="peekrefresh" aria-label="새로고침">⟳</button>`) +
@@ -646,9 +715,10 @@
   document.addEventListener('visibilitychange', () => {
     if (!root || root.classList.contains('hidden')) return;
     if (document.hidden) {
-      if (view === 'play') persistBoard();
+      if (view === 'play') { timerPause(); persistBoard(); dirty = true; }
       flushSave(true);
     } else {
+      if (view === 'play') timerResume();
       loadOthers().then(() => { if (view !== 'play') render(); else renderPlayOthers(); });
     }
   });
