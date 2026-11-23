@@ -464,7 +464,22 @@ html, body {
 }
 .calendar-cell.period-predicted .day-number {
   background: transparent;
-  color: #AD1457;
+  color: var(--color-text);
+}
+/* 예정일 배경 위에서도 일요일·공휴일(빨강), 토요일(파랑)이 보이도록 진한 색으로 */
+.calendar-cell.period-predicted:nth-child(7n) .day-number {
+  color: #1F6FD1;
+  font-weight: 700;
+}
+.calendar-cell.period-predicted:nth-child(7n+1) .day-number,
+.calendar-cell.period-predicted.holiday .day-number {
+  color: #C00010;
+  font-weight: 700;
+}
+/* 예정일이 오늘이면 오늘 표시(채워진 원) 유지 */
+.calendar-cell.period-predicted.today .day-number {
+  background: var(--color-primary);
+  color: #fff;
 }
 
 /* ── Fertile window: dotted connecting line (셀 하단 고정) ── */

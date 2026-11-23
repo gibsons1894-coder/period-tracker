@@ -43,81 +43,96 @@ const FIXED_HOLIDAYS_NAMED = {
   '10-09': '한글날',
   '12-25': '성탄절',
 };
-// 음력 공휴일, 선거일, 음력 관련 대체공휴일 (연도별)
-// 고정 공휴일 대체공휴일은 getSubstituteHolidays()가 자동 계산
+// 토·일요일과 겹치면 대체공휴일이 생기는 고정 공휴일 (관공서의 공휴일에 관한 규정 제3조)
+// 신정·현충일 등은 대체공휴일 미적용
+const SUBSTITUTE_FIXED = new Set(['03-01', '05-05', '08-15', '10-03', '10-09', '12-25']);
+
+// 선거일·임시공휴일 등 규칙으로 계산할 수 없는 공휴일 (연도별)
+// 설날·추석·부처님오신날과 모든 대체공휴일은 getLunarHolidays()/getSubstituteHolidays()가 자동 계산
 const YEAR_HOLIDAYS = {
-  2023: {
-    '01-21': '설날 전날', '01-22': '설날', '01-23': '설날 다음날', '01-24': '대체공휴일',
-    '05-27': '부처님오신날', '05-29': '부처님오신날 대체공휴일',
-    '09-28': '추석 전날', '09-29': '추석', '09-30': '추석 다음날', '10-02': '대체공휴일',
-  },
-  2024: {
-    '02-09': '설날 전날', '02-10': '설날', '02-11': '설날 다음날', '02-12': '대체공휴일',
-    '04-10': '제22대 국회의원선거일',
-    '05-15': '부처님오신날',
-    '09-16': '추석 전날', '09-17': '추석', '09-18': '추석 다음날',
-  },
-  2025: {
-    '01-28': '설날 전날', '01-29': '설날', '01-30': '설날 다음날',
-    '05-05': '어린이날·부처님오신날', '05-06': '대체공휴일',
-    '06-03': '제21대 대통령선거일',
-    '10-05': '추석 전날', '10-06': '추석', '10-07': '추석 다음날', '10-08': '대체공휴일',
-  },
-  2026: {
-    '02-16': '설날 전날', '02-17': '설날', '02-18': '설날 다음날',
-    '05-24': '부처님오신날', '05-25': '부처님오신날 대체공휴일',
-    '06-03': '제9회 전국동시지방선거일',
-    '09-24': '추석 전날', '09-25': '추석', '09-26': '추석 다음날', '09-28': '대체공휴일',
-  },
-  2027: {
-    '02-06': '설날 전날', '02-07': '설날', '02-08': '설날 다음날', '02-09': '대체공휴일',
-    '05-13': '부처님오신날',
-    '09-14': '추석 전날', '09-15': '추석', '09-16': '추석 다음날',
-  },
-  2028: {
-    '01-26': '설날 전날', '01-27': '설날', '01-28': '설날 다음날',
-    '04-12': '제23대 국회의원선거일',
-    '05-02': '부처님오신날',
-    '10-02': '추석 전날', '10-03': '추석·개천절', '10-04': '추석 다음날', '10-05': '대체공휴일',
-  },
-  2029: {
-    '02-12': '설날 전날', '02-13': '설날', '02-14': '설날 다음날',
-    '05-20': '부처님오신날',
-    '09-21': '추석 전날', '09-22': '추석', '09-23': '추석 다음날',
-  },
-  2030: {
-    '02-02': '설날 전날', '02-03': '설날', '02-04': '설날 다음날',
-    '05-09': '부처님오신날',
-    '06-04': '제10회 전국동시지방선거일',
-    '09-11': '추석 전날', '09-12': '추석', '09-13': '추석 다음날',
-  },
+  2023: { '10-02': '임시공휴일' },
+  2024: { '04-10': '제22대 국회의원선거일', '10-01': '국군의 날 임시공휴일' },
+  2025: { '01-27': '임시공휴일', '06-03': '제21대 대통령선거일' },
+  2026: { '06-03': '제9회 전국동시지방선거일' },
+  2028: { '04-12': '제23대 국회의원선거일' },
+  2030: { '06-04': '제10회 전국동시지방선거일' },
 };
 
-// 고정 공휴일이 주말이면 다음 평일을 대체공휴일로 자동 계산 (2100년까지)
+function _mmdd(dateStr) { return dateStr.slice(5); }
+
+// 설날(전날·당일·다음날), 추석(전날·당일·다음날), 부처님오신날 — 음력 변환으로 계산
+// 반환: { mmdd: {name, kind:'seol'|'chuseok'|'buddha'} }
+const _lunarHolCache = {};
+function getLunarHolidays(year) {
+  if (_lunarHolCache[year]) return _lunarHolCache[year];
+  const result = {};
+  const add = (ds, name, kind) => {
+    if (ds && ds.startsWith(year + '-')) result[_mmdd(ds)] = { name, kind };
+  };
+  const seol = lunarToSolar(year, 1, 1, false);
+  if (seol) {
+    add(addDays(seol, -1), '설날 전날', 'seol');
+    add(seol, '설날', 'seol');
+    add(addDays(seol, 1), '설날 다음날', 'seol');
+  }
+  const chuseok = lunarToSolar(year, 8, 15, false);
+  if (chuseok) {
+    add(addDays(chuseok, -1), '추석 전날', 'chuseok');
+    add(chuseok, '추석', 'chuseok');
+    add(addDays(chuseok, 1), '추석 다음날', 'chuseok');
+  }
+  const buddha = lunarToSolar(year, 4, 8, false);
+  if (buddha) add(buddha, '부처님오신날', 'buddha');
+  _lunarHolCache[year] = result;
+  return result;
+}
+
+// 대체공휴일 자동 계산 (관공서의 공휴일에 관한 규정 제3조)
+//  - 설날·추석 연휴: 일요일 또는 다른 공휴일과 겹칠 때만 (토요일은 해당 없음)
+//  - 삼일절·어린이날·광복절·개천절·한글날·성탄절·부처님오신날: 토·일요일 또는 다른 공휴일과 겹칠 때
+//  - 대체공휴일은 그 다음의 첫 번째 비공휴일 평일
 const _subCache = {};
 function getSubstituteHolidays(year) {
   if (_subCache[year]) return _subCache[year];
-  const result = {};
   const ys = YEAR_HOLIDAYS[year] || {};
-  function mmddOf(d) {
-    return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-  function occupied(mmdd) {
-    return mmdd in FIXED_HOLIDAYS_NAMED || mmdd in ys || mmdd in result;
-  }
-  // 대체공휴일 미적용 공휴일 (현충일, 제헌절 등 법정 제외)
-  const NO_SUBSTITUTE = new Set(['06-06']);
-  for (const [mmdd, name] of Object.entries(FIXED_HOLIDAYS_NAMED)) {
-    if (NO_SUBSTITUTE.has(mmdd)) continue;
-    const [m, d] = mmdd.split('-').map(Number);
-    const dow = new Date(year, m - 1, d).getDay();
-    if (dow === 0 || dow === 6) {
-      const sub = new Date(year, m - 1, d);
-      sub.setDate(sub.getDate() + (dow === 6 ? 2 : 1));
-      while (occupied(mmddOf(sub)) || sub.getDay() === 0 || sub.getDay() === 6)
-        sub.setDate(sub.getDate() + 1);
-      result[mmddOf(sub)] = name + ' 대체공휴일';
+  const lunar = getLunarHolidays(year);
+  const result = {};
+  const dateOf = mmdd => `${year}-${mmdd}`;
+  const dowOf = mmdd => fromDateStr(dateOf(mmdd)).getDay();
+  const isHoliday = ds => {
+    const y = parseInt(ds.slice(0, 4), 10);
+    const md = _mmdd(ds);
+    if (y !== year) return !!getHolidayName(ds);
+    return md in FIXED_HOLIDAYS_NAMED || md in ys || md in lunar || md in result;
+  };
+
+  // 대체공휴일이 필요한 날짜 수집 (같은 날 여러 공휴일이 겹쳐도 1일만)
+  const triggers = new Map(); // mmdd -> 원래 공휴일 이름
+  for (const [md, { name, kind }] of Object.entries(lunar)) {
+    const dow = dowOf(md);
+    const overlapsOther = md in FIXED_HOLIDAYS_NAMED || md in ys;
+    if (kind === 'buddha') {
+      if (dow === 0 || dow === 6 || overlapsOther) triggers.set(md, name);
+    } else {
+      if (dow === 0 || overlapsOther) triggers.set(md, name.startsWith('설날') ? '설날' : '추석');
     }
+  }
+  for (const md of SUBSTITUTE_FIXED) {
+    const dow = dowOf(md);
+    const overlapsOther = md in lunar || md in ys;
+    if ((dow === 0 || dow === 6 || overlapsOther) && !triggers.has(md)) {
+      triggers.set(md, FIXED_HOLIDAYS_NAMED[md]);
+    }
+  }
+
+  for (const md of [...triggers.keys()].sort()) {
+    let ds = addDays(dateOf(md), 1);
+    while (true) {
+      const dow = fromDateStr(ds).getDay();
+      if (dow !== 0 && dow !== 6 && !isHoliday(ds)) break;
+      ds = addDays(ds, 1);
+    }
+    if (ds.startsWith(year + '-')) result[_mmdd(ds)] = triggers.get(md) + ' 대체공휴일';
   }
   _subCache[year] = result;
   return result;
@@ -125,11 +140,15 @@ function getSubstituteHolidays(year) {
 
 function getHolidayName(dateStr) {
   const year = parseInt(dateStr.slice(0, 4), 10);
-  const mmdd = dateStr.slice(5);
-  return (YEAR_HOLIDAYS[year] || {})[mmdd]
-    || FIXED_HOLIDAYS_NAMED[mmdd]
-    || getSubstituteHolidays(year)[mmdd]
-    || null;
+  const mmdd = _mmdd(dateStr);
+  const names = [];
+  const lunar = getLunarHolidays(year)[mmdd];
+  if (lunar) names.push(lunar.name);
+  if (FIXED_HOLIDAYS_NAMED[mmdd]) names.push(FIXED_HOLIDAYS_NAMED[mmdd]);
+  const extra = (YEAR_HOLIDAYS[year] || {})[mmdd];
+  if (extra) names.push(extra);
+  if (names.length) return names.join('·');
+  return getSubstituteHolidays(year)[mmdd] || null;
 }
 function isKoreanHoliday(dateStr) {
   return getHolidayName(dateStr) !== null;
@@ -162,8 +181,8 @@ const LUNAR_INFO = [
 const LUNAR_BASE_YEAR = 1900;
 
 // 표준 음력 변환 알고리즘은 극히 드물게(신월 발생 시각이 한국·중국 시간대 경계에
-// 걸치는 해) 한국 공식(KASI) 음력과 하루 어긋난다. 이 파일의 YEAR_HOLIDAYS(설날/
-// 추석/부처님오신날, KASI 기준)로 검증해 발견된 어긋남만 보정한다.
+// 걸치는 해) 한국 공식(KASI) 음력과 하루 어긋난다. KASI 기준 설날/추석/부처님오신날
+// 날짜로 검증해 발견된 어긋남만 보정한다.
 const LUNAR_KR_DAY_OVERRIDE = new Set(['2023-4-8', '2027-1-1', '2028-1-1']);
 
 function _lunarLeapMonth(y) { return LUNAR_INFO[y - LUNAR_BASE_YEAR] & 0xf; }
