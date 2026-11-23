@@ -2293,3 +2293,15 @@ html, body {
   #header .nav-btn { width: 30px; font-size: 24px; }
   .month-title { padding: 6px 2px; }
 }
+
+/* 클리어 기록 (이름 · 날짜 · 소요시간) */
+.sl-win-record {
+  margin: 14px 0 2px; background: #F7F7FA; border-radius: 12px; padding: 4px 14px;
+}
+.sl-win-record div {
+  display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px;
+}
+.sl-win-record div + div { border-top: 1px solid var(--color-border); }
+.sl-win-record span { color: #8E8E93; }
+.sl-win-record b { font-weight: 700; }
+#slTimer { font-variant-numeric: tabular-nums; }
