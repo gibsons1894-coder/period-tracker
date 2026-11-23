@@ -2823,6 +2823,7 @@ function init() {
       const el = document.getElementById(id);
       return el && !el.classList.contains('hidden') && !el.classList.contains('closing');
     };
+    if (window.slitherBack && window.slitherBack()) { history.pushState(null, ''); return; }
     if (isOpen('dayModal'))         { closeDayModal();    history.pushState(null, ''); return; }
     if (isOpen('statsModal'))       { closeStats();       history.pushState(null, ''); return; }
     if (isOpen('settingsModal'))    { closeSettings();    history.pushState(null, ''); return; }

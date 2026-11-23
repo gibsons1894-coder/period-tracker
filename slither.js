@@ -229,6 +229,17 @@
   function allPlayers() {
     return [{ ...serverRecord(), playerId: sl.playerId, me: true }, ...others];
   }
+  const STALE_MS = 7 * 86400000; // 7일 넘게 손대지 않은 진행은 표시하지 않음
+  function activeProgress(p, k) {
+    const prog = (p.progress || {})[k];
+    if (!prog) return null;
+    if (!p.me && prog.t && Date.now() - prog.t > STALE_MS) return null;
+    return prog;
+  }
+  function activeProgressCount(p) {
+    return Object.keys(p.progress || {}).filter(k => activeProgress(p, k)).length;
+  }
+
   function clearCount(p, n) { return Object.keys((p.clears || {})[n] || {}).length; }
   function displayName(p) { return p.nickname || (p.me ? '나' : '이름 없음'); }
 
@@ -244,7 +255,7 @@
       syncNote = '<div class="sl-note">아직 함께 플레이한 사람이 없어요. 상대도 퍼즐을 시작하면 여기에 표시돼요.</div>';
     } else {
       syncNote = '<div class="sl-players">' + others.map(p => {
-        const playing = Object.keys(p.progress || {}).length;
+        const playing = activeProgressCount(p);
         return `<span class="sl-player-pill">${esc(displayName(p))}${playing ? ' <em>진행중</em>' : ''}</span>`;
       }).join('') + '</div>';
     }
@@ -280,11 +291,12 @@
       if (date) {
         return `<span class="sl-chip done${p.me ? ' me' : ''}">✓ ${esc(displayName(p))} · ${shortDate(date)}</span>`;
       }
-      const prog = (p.progress || {})[k];
+      const prog = activeProgress(p, k);
       if (prog) {
         if (p.me) return `<span class="sl-chip playing me">${esc(displayName(p))} 진행중</span>`;
+        const when = prog.t ? ` · ${relTime(prog.t)}` : '';
         return `<button class="sl-chip playing peekable" data-act="peek" data-pid="${esc(p.playerId)}" data-n="${n}" data-stage="${stage}">
-          ${esc(displayName(p))} 진행중 <span class="sl-chip-eye">보기 ›</span></button>`;
+          ${esc(displayName(p))} 진행중${when} <span class="sl-chip-eye">보기 ›</span></button>`;
       }
       return '';
     }).join('');
@@ -377,7 +389,8 @@
         const want = +ch;
         let on = 0, x = 0;
         for (const e of cellEdges(L, r, c)) { if (b.edges[e] === 1) on++; else if (b.edges[e] === 2) x++; }
-        const cls = on > want || (4 - x) < want ? 'err' : (on === want ? 'ok' : '');
+        // 초과하거나 남은 변으로 채울 수 없으면 오류, 네 변이 모두 정해지고 개수가 맞으면 완료(회색)
+        const cls = on > want || (4 - x) < want ? 'err' : (on === want && on + x === 4 ? 'ok' : '');
         parts.push(`<text x="${(c + 0.5) * U}" y="${(r + 0.53) * U}" class="sl-clue ${cls}">${ch}</text>`);
       }
     }
@@ -640,5 +653,23 @@
     }
   });
 
+  // 기기 뒤로가기: 처리했으면 true (app.js의 popstate 핸들러에서 호출)
+  function back() {
+    if (!root || root.classList.contains('hidden')) return false;
+    const dlg = root.querySelector('.sl-dialog-backdrop');
+    if (dlg) { dlg.remove(); if (!sl.nickname) close(); else render(); return true; }
+    const win = root.querySelector('#slWin');
+    if (view === 'play' && win && !win.classList.contains('hidden')) { go('stages'); return true; }
+    if (view === 'home') close();
+    else if (view === 'stages') go('home');
+    else if (view === 'play') go('stages');
+    else if (view === 'peek') {
+      if (peek && peek.from === 'play') startPlay(peek.n, peek.stage);
+      else go('stages');
+    }
+    return true;
+  }
+
   window.openSlither = open;
+  window.slitherBack = back;
 })();
