@@ -2275,15 +2275,21 @@ html, body {
 .sl-input:focus { outline: 2px solid var(--color-primary); border-color: transparent; }
 
 /* 헤더 아이콘이 4개가 되면서 좁은 화면에서 제목이 줄바꿈되지 않도록 */
-.month-title { white-space: nowrap; min-width: 0; }
+.month-title {
+  white-space: nowrap;      /* "2026년 11월"이 두 줄로 넘어가지 않게 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  font-size: clamp(14px, 4.6vw, 18px);  /* 좁은 화면에서는 글자를 줄여 한 줄 유지 */
+}
 @media (max-width: 400px) {
   #header .header-icon-btn { width: 38px; font-size: 19px; }
   #header .nav-btn { width: 36px; }
-  .month-title { padding: 6px 4px; font-size: 17px; }
+  .month-title { padding: 6px 4px; }
 }
 @media (max-width: 340px) {
   #header { padding: 0 2px; }
   #header .header-icon-btn { width: 33px; font-size: 17px; }
   #header .nav-btn { width: 30px; font-size: 24px; }
-  .month-title { font-size: 15px; padding: 6px 2px; }
+  .month-title { padding: 6px 2px; }
 }
