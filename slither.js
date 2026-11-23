@@ -219,7 +219,15 @@
     view = 'home';
     render();
     if (!sl.nickname) showNicknameDialog(true);
-    loadOthers().then(() => { if (view === 'home' || view === 'stages') render(); });
+    loadOthers().then(() => {
+      // 이 기기에만 있던 기록(이전 버전에서 쌓인 것 포함)이 공유본과 다르면 바로 올림
+      if (syncOn() && sl.nickname) {
+        const shared = ((data.slither || {})[sl.playerId]) || null;
+        const mine = { ...serverRecord(), playerId: sl.playerId };
+        if (!shared || JSON.stringify(shared) !== JSON.stringify(mine)) { dirty = true; flushSave(); }
+      }
+      if (view === 'home' || view === 'stages') render();
+    });
     startPolling();
   }
 
