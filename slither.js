@@ -340,7 +340,7 @@
       `<button class="sl-icon-btn" data-act="undo" aria-label="되돌리기">↶</button>`) +
       `<div class="sl-body sl-play-body">
         <div class="sl-others" id="slPlayOthers"></div>
-        <div class="sl-board-wrap"><svg id="slBoard" class="sl-board"></svg></div>
+        <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slBoard" class="sl-board"></svg></div></div>
         <div class="sl-tools">
           <button class="sl-tool" data-act="undo">↶ 되돌리기</button>
           <button class="sl-tool" data-act="reset">⟲ 처음부터</button>
@@ -366,7 +366,7 @@
 
   function drawBoard(svg, b, readonly) {
     const n = b.n, L = b.L;
-    const pad = 0.45 * U;
+    const pad = 0.3 * U;
     svg.setAttribute('viewBox', `${-pad} ${-pad} ${n * U + 2 * pad} ${n * U + 2 * pad}`);
     const parts = [];
     // 숫자
@@ -541,7 +541,7 @@
     return header(`${esc(name)}의 진행 상황`, `${n}×${n} · ${s}단계 · ${sub}`, 'peekback',
       `<button class="sl-icon-btn" data-act="peekrefresh" aria-label="새로고침">⟳</button>`) +
       `<div class="sl-body sl-play-body">
-        <div class="sl-board-wrap"><svg id="slPeekBoard" class="sl-board"></svg></div>
+        <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slPeekBoard" class="sl-board"></svg></div></div>
         <div class="sl-help">보기 전용이에요 · 자동으로 새로고침돼요</div>
         <div class="sl-tools"><button class="sl-btn" data-act="playpeeked">나도 이 단계 풀기 ›</button></div>
       </div>`;
