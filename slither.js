@@ -360,10 +360,22 @@
   }
 
   // ── 플레이 ────────────────────────────────────────────
-  function startPlay(n, stage) {
+  function startPlay(n, stage, replay) {
     curSize = n;
     curStage = stage;
     const saved = sl.progress[keyOf(n, stage)];
+    const cleared = (sl.clears[n] || {})[stage];
+    if (cleared && !saved && !replay) {
+      // 클리어한 단계는 다시 들어가면 정답 판을 보여줌 (원하면 '다시 풀기')
+      board = makeBoard(n, stage);
+      for (let i = 0; i < board.L.E; i++) board.edges[i] = board.sol[i] === '1' ? 1 : 0;
+      board.won = true;
+      board.answer = true;
+      board.ms = 0;
+      board.segStart = null;
+      go('play');
+      return;
+    }
     board = makeBoard(n, stage, saved && saved.e);
     board.ms = (saved && saved.ms) || 0;   // 지금까지 푼 시간 (화면을 보고 있던 시간만)
     board.segStart = null;
@@ -414,6 +426,15 @@
   function playHtml() {
     const n = board.n, s = board.stage;
     const cleared = (sl.clears[n] || {})[s];
+    if (board.answer) {
+      return header(`${n}×${n} · ${s}단계`, `${clearLabel(cleared)} 클리어함 · 정답`, 'stages') +
+        `<div class="sl-body sl-play-body">
+          <div class="sl-others" id="slPlayOthers"></div>
+          <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slBoard" class="sl-board"></svg></div></div>
+          <div class="sl-tools"><button class="sl-btn" data-act="replay">⟲ 다시 풀기</button></div>
+          <div class="sl-help">클리어한 단계라 정답을 보여줘요 · 다시 풀어도 처음 기록은 그대로예요</div>
+        </div>`;
+    }
     const sub = `${cleared ? `${clearLabel(cleared)} 클리어함` : LEVEL_NAMES[n]} · <span id="slTimer">⏱ ${fmtDur(elapsedMs() / 1000)}</span>`;
     return header(`${n}×${n} · ${s}단계`, sub, 'stages',
       `<button class="sl-icon-btn" data-act="undo" aria-label="되돌리기">↶</button>`) +
@@ -439,6 +460,7 @@
   function mountBoard() {
     const svg = root.querySelector('#slBoard');
     drawBoard(svg, board, false);
+    if (board.answer) { svg.classList.add('won'); renderPlayOthers(); return; }
     renderPlayOthers();
     attachInput(svg);
     if (!document.hidden) timerResume();
@@ -717,6 +739,7 @@
         loadOthers().then(() => { if (view === 'peek') { render(); toast('새로고침했어요'); } });
         break;
       case 'playpeeked': startPlay(peek.n, peek.stage); break;
+      case 'replay': startPlay(board.n, board.stage, true); break;
     }
   }
 
