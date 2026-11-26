@@ -9,10 +9,10 @@
   const SL_KEY = 'slither_v1';
   // 크기 키: 정사각형 "6", 직사각형 "8x14" (가로 8칸 × 세로 14칸)
   const SQUARE_SIZES = ['6', '7', '8', '9', '10', '11'];
-  const TALL_SIZES = ['6x10', '7x12', '8x14', '9x16', '10x18']; // 휴대폰 세로 화면 비율
+  const TALL_SIZES = ['8x14', '9x16', '10x18']; // 휴대폰 세로 화면 비율
   const LEVEL_NAMES = {
     6: '입문', 7: '쉬움', 8: '보통', 9: '어려움', 10: '고수', 11: '달인',
-    '6x10': '입문', '7x12': '쉬움', '8x14': '보통', '9x16': '어려움', '10x18': '고수',
+    '8x14': '보통', '9x16': '어려움', '10x18': '고수',
   };
   function dims(key) {
     const k = String(key);
@@ -328,10 +328,10 @@
       `<button class="sl-nick-btn" data-act="nick">${esc(sl.nickname || '닉네임')} ✏️</button>`) +
       `<div class="sl-body">
         ${syncNote}
-        <div class="sl-section-title">세로형 <span>휴대폰 화면에 꽉 차게</span></div>
-        <div class="sl-size-grid">${cardsOf(TALL_SIZES)}</div>
         <div class="sl-section-title">정사각형</div>
         <div class="sl-size-grid">${cardsOf(SQUARE_SIZES)}</div>
+        <div class="sl-section-title">세로형 <span>휴대폰 화면에 꽉 차게</span></div>
+        <div class="sl-size-grid">${cardsOf(TALL_SIZES)}</div>
         <div class="sl-help">점과 점을 이어 하나의 고리를 만드세요. 숫자는 그 칸을 둘러싼 선의 개수예요.</div>
       </div>`;
   }
