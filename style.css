@@ -2315,7 +2315,6 @@ html, body {
 
 /* 세로형 퍼즐: 버튼을 위로, 여백 최소화 */
 .sl-play-body.tall { padding: 6px 2px calc(4px + env(safe-area-inset-bottom)); }
-.sl-tools.top { margin: 0 0 6px; }
-.sl-tools.top .sl-tool { padding: 8px 14px; font-size: 13px; }
+.sl-icon-btn.sm { width: 40px; font-size: 22px; }
 .sl-play-body.tall .sl-others { min-height: 0; margin-bottom: 4px; }
 .sl-play-body.tall .sl-board-wrap { padding: 0; border-radius: 10px; }

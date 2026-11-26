@@ -452,13 +452,11 @@
     }
     const sub = `${cleared ? `${clearLabel(cleared)} 클리어함` : LEVEL_NAMES[n]} · <span id="slTimer">⏱ ${fmtDur(elapsedMs() / 1000)}</span>`;
     if (board.R > board.C) {
-      // 세로형: 버튼을 위로 올리고 설명을 빼서 판에 세로 공간을 최대한 줌
-      return header(`${sizeLabel(n)} · ${s}단계`, sub, 'stages') +
+      // 세로형: 버튼을 제목줄로 올리고 설명을 빼서 판에 세로 공간을 최대한 줌
+      return header(`${sizeLabel(n)} · ${s}단계`, sub, 'stages',
+        `<button class="sl-icon-btn sm" data-act="undo" aria-label="되돌리기">↶</button>
+         <button class="sl-icon-btn sm" data-act="reset" aria-label="처음부터">⟲</button>`) +
         `<div class="sl-body sl-play-body tall">
-          <div class="sl-tools top">
-            <button class="sl-tool" data-act="undo">↶ 되돌리기</button>
-            <button class="sl-tool" data-act="reset">⟲ 처음부터</button>
-          </div>
           <div class="sl-others" id="slPlayOthers"></div>
           <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slBoard" class="sl-board"></svg></div></div>
         </div>
