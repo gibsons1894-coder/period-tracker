@@ -7,8 +7,19 @@
   'use strict';
 
   const SL_KEY = 'slither_v1';
-  const SIZES = [6, 7, 8, 9, 10, 11];
-  const LEVEL_NAMES = { 6: '입문', 7: '쉬움', 8: '보통', 9: '어려움', 10: '고수', 11: '달인' };
+  // 크기 키: 정사각형 "6", 직사각형 "8x14" (가로 8칸 × 세로 14칸)
+  const SQUARE_SIZES = ['6', '7', '8', '9', '10', '11'];
+  const TALL_SIZES = ['6x10', '7x12', '8x14', '9x16', '10x18']; // 휴대폰 세로 화면 비율
+  const LEVEL_NAMES = {
+    6: '입문', 7: '쉬움', 8: '보통', 9: '어려움', 10: '고수', 11: '달인',
+    '6x10': '입문', '7x12': '쉬움', '8x14': '보통', '9x16': '어려움', '10x18': '고수',
+  };
+  function dims(key) {
+    const k = String(key);
+    if (k.includes('x')) { const [C, R] = k.split('x').map(Number); return { R, C }; }
+    return { R: +k, C: +k };
+  }
+  function sizeLabel(key) { const { R, C } = dims(key); return `${C}×${R}`; }
   const SAVE_MIN_INTERVAL = 30000; // 진행 중 서버 저장 최소 간격 (상대 화면 반영 속도 vs 저장 횟수)
   const POLL_INTERVAL = 30000;
   const PEEK_POLL_INTERVAL = 15000;
@@ -23,7 +34,7 @@
   let othersLoaded = false;
   let root = null;
   let view = 'home';
-  let curSize = 6;
+  let curSize = '6';
   let curStage = 1;
   let board = null;      // 플레이 중인 판
   let peek = null;       // { playerId, n, stage }
@@ -175,12 +186,12 @@
   function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
 
   // ── 판 데이터 ─────────────────────────────────────────
-  function layout(n) {
-    const H = (n + 1) * n;
+  function layout(R, C) {
+    const H = (R + 1) * C;
     return {
-      n, H, E: H + n * (n + 1),
-      h: (r, c) => r * n + c,
-      v: (r, c) => H + r * (n + 1) + c,
+      R, C, H, E: H + R * (C + 1),
+      h: (r, c) => r * C + c,
+      v: (r, c) => H + r * (C + 1) + c,
     };
   }
   const U = 100; // SVG 좌표: 한 칸 = 100
@@ -189,10 +200,11 @@
 
   function makeBoard(n, stage, edgeStr) {
     const p = puzzles()[n][stage - 1];
-    const L = layout(n);
+    const { R, C } = dims(n);
+    const L = layout(R, C);
     const edges = new Uint8Array(L.E);
     if (edgeStr && edgeStr.length === L.E) for (let i = 0; i < L.E; i++) edges[i] = +edgeStr[i] || 0;
-    return { n, stage, L, clues: p.c, sol: p.s, edges, history: [] };
+    return { n, R, C, stage, L, clues: p.c, sol: p.s, edges, history: [] };
   }
   const edgesToStr = edges => Array.from(edges).join('');
 
@@ -297,7 +309,7 @@
         return `<span class="sl-player-pill">${esc(displayName(p))}${playing ? ' <em>진행중</em>' : ''}</span>`;
       }).join('') + '</div>';
     }
-    const cards = SIZES.filter(n => stageCount(n)).map(n => {
+    const cardsOf = list => list.filter(n => stageCount(n)).map(n => {
       const total = stageCount(n);
       const rows = players.map(p => {
         const cnt = clearCount(p, n);
@@ -308,7 +320,7 @@
         </div>`;
       }).join('');
       return `<button class="sl-size-card" data-act="size" data-n="${n}">
-        <div class="sl-size-top"><span class="sl-size">${n}×${n}</span><span class="sl-level">${LEVEL_NAMES[n]}</span></div>
+        <div class="sl-size-top"><span class="sl-size">${sizeLabel(n)}</span><span class="sl-level">${LEVEL_NAMES[n]}</span></div>
         ${rows}
       </button>`;
     }).join('');
@@ -316,7 +328,10 @@
       `<button class="sl-nick-btn" data-act="nick">${esc(sl.nickname || '닉네임')} ✏️</button>`) +
       `<div class="sl-body">
         ${syncNote}
-        <div class="sl-size-grid">${cards}</div>
+        <div class="sl-section-title">세로형 <span>휴대폰 화면에 꽉 차게</span></div>
+        <div class="sl-size-grid">${cardsOf(TALL_SIZES)}</div>
+        <div class="sl-section-title">정사각형</div>
+        <div class="sl-size-grid">${cardsOf(SQUARE_SIZES)}</div>
         <div class="sl-help">점과 점을 이어 하나의 고리를 만드세요. 숫자는 그 칸을 둘러싼 선의 개수예요.</div>
       </div>`;
   }
@@ -355,7 +370,7 @@
         <span class="sl-chev">›</span>
       </div>`);
     }
-    return header(`${n}×${n} · ${LEVEL_NAMES[n]}`, `${clearCount({ clears: sl.clears }, n)}/${total} 클리어`, 'home') +
+    return header(`${sizeLabel(n)} · ${LEVEL_NAMES[n]}`, `${clearCount({ clears: sl.clears }, n)}/${total} 클리어`, 'home') +
       `<div class="sl-body"><div class="sl-stage-list">${rows.join('')}</div></div>`;
   }
 
@@ -427,7 +442,7 @@
     const n = board.n, s = board.stage;
     const cleared = (sl.clears[n] || {})[s];
     if (board.answer) {
-      return header(`${n}×${n} · ${s}단계`, `${clearLabel(cleared)} 클리어함 · 정답`, 'stages') +
+      return header(`${sizeLabel(n)} · ${s}단계`, `${clearLabel(cleared)} 클리어함 · 정답`, 'stages') +
         `<div class="sl-body sl-play-body">
           <div class="sl-others" id="slPlayOthers"></div>
           <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slBoard" class="sl-board"></svg></div></div>
@@ -436,7 +451,7 @@
         </div>`;
     }
     const sub = `${cleared ? `${clearLabel(cleared)} 클리어함` : LEVEL_NAMES[n]} · <span id="slTimer">⏱ ${fmtDur(elapsedMs() / 1000)}</span>`;
-    return header(`${n}×${n} · ${s}단계`, sub, 'stages',
+    return header(`${sizeLabel(n)} · ${s}단계`, sub, 'stages',
       `<button class="sl-icon-btn" data-act="undo" aria-label="되돌리기">↶</button>`) +
       `<div class="sl-body sl-play-body">
         <div class="sl-others" id="slPlayOthers"></div>
@@ -467,14 +482,16 @@
   }
 
   function drawBoard(svg, b, readonly) {
-    const n = b.n, L = b.L;
+    const R = b.R, C = b.C, L = b.L;
     const pad = 0.3 * U;
-    svg.setAttribute('viewBox', `${-pad} ${-pad} ${n * U + 2 * pad} ${n * U + 2 * pad}`);
+    const vw = C * U + 2 * pad, vh = R * U + 2 * pad;
+    svg.setAttribute('viewBox', `${-pad} ${-pad} ${vw} ${vh}`);
+    if (svg.parentElement) svg.parentElement.style.setProperty('--ar', (vw / vh).toFixed(4));
     const parts = [];
     // 숫자
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        const ch = b.clues[r * n + c];
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        const ch = b.clues[r * C + c];
         if (ch === '.') continue;
         const want = +ch;
         let on = 0, x = 0;
@@ -486,8 +503,8 @@
     }
     // 선 / ✕
     const seg = (e) => {
-      if (e < L.H) { const r = Math.floor(e / n), c = e % n; return [c, r, c + 1, r]; }
-      const k = e - L.H, r = Math.floor(k / (n + 1)), c = k % (n + 1);
+      if (e < L.H) { const r = Math.floor(e / C), c = e % C; return [c, r, c + 1, r]; }
+      const k = e - L.H, r = Math.floor(k / (C + 1)), c = k % (C + 1);
       return [c, r, c, r + 1];
     };
     for (let e = 0; e < L.E; e++) {
@@ -502,7 +519,7 @@
       }
     }
     // 점
-    for (let r = 0; r <= n; r++) for (let c = 0; c <= n; c++) {
+    for (let r = 0; r <= R; r++) for (let c = 0; c <= C; c++) {
       parts.push(`<circle cx="${c * U}" cy="${r * U}" r="${0.075 * U}" class="sl-dot"/>`);
     }
     svg.innerHTML = parts.join('');
@@ -516,19 +533,19 @@
     if (!ctm) return -1;
     const q = pt.matrixTransform(ctm.inverse());
     const p = { x: q.x / U, y: q.y / U };
-    const n = b.n, L = b.L;
+    const R = b.R, C = b.C, L = b.L;
     let best = -1, bestD = maxDist;
     // 가로선
     const hr = Math.round(p.y), hc = Math.floor(p.x);
     // 꼭짓점 근처는 가로/세로가 모호하므로 제외 (끌기로 모서리를 돌 때 옆 선이 그려지는 것 방지)
     const nearV = t => Math.abs(t - Math.round(t)) < vertexGap;
-    if (hr >= 0 && hr <= n && hc >= 0 && hc < n && !nearV(p.x)) {
+    if (hr >= 0 && hr <= R && hc >= 0 && hc < C && !nearV(p.x)) {
       const d = Math.abs(p.y - hr);
       if (d < bestD) { bestD = d; best = L.h(hr, hc); }
     }
     // 세로선
     const vc = Math.round(p.x), vr = Math.floor(p.y);
-    if (vc >= 0 && vc <= n && vr >= 0 && vr < n && !nearV(p.y)) {
+    if (vc >= 0 && vc <= C && vr >= 0 && vr < R && !nearV(p.y)) {
       const d = Math.abs(p.x - vc);
       if (d < bestD) { bestD = d; best = L.v(vr, vc); }
     }
@@ -596,7 +613,7 @@
     const win = root.querySelector('#slWin');
     win.innerHTML = `<div class="sl-win-card">
       <div class="sl-win-emoji">🎉</div>
-      <div class="sl-win-title">${n}×${n} ${s}단계 클리어!</div>
+      <div class="sl-win-title">${sizeLabel(n)} ${s}단계 클리어!</div>
       <div class="sl-win-record">
         <div><span>클리어</span><b>${name}</b></div>
         <div><span>날짜</span><b>${shortDate(todayStr())}</b></div>
@@ -650,7 +667,7 @@
     if (date) sub = `${clearLabel(date)} 클리어`;
     else if (prog) sub = `마지막 진행 ${relTime(prog.t)}${prog.ms ? ` · ⏱ ${fmtDur(prog.ms / 1000)}` : ''}`;
     else sub = '진행 기록 없음';
-    return header(`${esc(name)}의 진행 상황`, `${n}×${n} · ${s}단계 · ${sub}`, 'peekback',
+    return header(`${esc(name)}의 진행 상황`, `${sizeLabel(n)} · ${s}단계 · ${sub}`, 'peekback',
       `<button class="sl-icon-btn" data-act="peekrefresh" aria-label="새로고침">⟳</button>`) +
       `<div class="sl-body sl-play-body">
         <div class="sl-board-area"><div class="sl-board-wrap"><svg id="slPeekBoard" class="sl-board"></svg></div></div>
@@ -721,13 +738,13 @@
       case 'home': go('home'); break;
       case 'stages': go('stages'); break;
       case 'nick': showNicknameDialog(false); break;
-      case 'size': curSize = +el.dataset.n; go('stages'); break;
+      case 'size': curSize = el.dataset.n; go('stages'); break;
       case 'play': startPlay(curSize, +el.dataset.stage); break;
       case 'next': startPlay(board.n, board.stage + 1); break;
       case 'undo': undo(); break;
       case 'reset': reset(); break;
       case 'peek':
-        peek = { playerId: el.dataset.pid, n: +el.dataset.n, stage: +el.dataset.stage, from: view };
+        peek = { playerId: el.dataset.pid, n: el.dataset.n, stage: +el.dataset.stage, from: view };
         if (view === 'play') leavePlay();
         go('peek');
         break;
