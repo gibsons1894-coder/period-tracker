@@ -2224,7 +2224,8 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 .sl-board-wrap {
-  width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
+  --ar: 1; /* 판의 가로/세로 비율 (JS에서 설정) — 정사각형·세로형 모두 비율 유지 */
+  width: min(100cqw, calc(100cqh * var(--ar))); aspect-ratio: var(--ar);
   background: #fff; border-radius: 12px; padding: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .sl-board { display: block; width: 100%; height: 100%; touch-action: none; }
@@ -2305,3 +2306,9 @@ html, body {
 .sl-win-record span { color: #8E8E93; }
 .sl-win-record b { font-weight: 700; }
 #slTimer { font-variant-numeric: tabular-nums; }
+
+.sl-section-title {
+  font-size: 13px; font-weight: 700; color: #6E6E73; margin: 4px 4px 8px;
+}
+.sl-section-title span { font-weight: 500; color: #AEAEB2; margin-left: 4px; }
+.sl-size-grid + .sl-section-title { margin-top: 18px; }
